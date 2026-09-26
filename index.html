@@ -1,0 +1,3159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSOD Studio — build your own blue screen of death</title>
+<meta name="description" content="Customize any Windows blue screen of death — from NT 3.1 to the black screen of 2025 — and save it as a picture.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230078D7'/%3E%3Ctext x='32' y='44' font-size='32' font-family='sans-serif' fill='%23fff' text-anchor='middle'%3E:(%3C/text%3E%3C/svg%3E">
+<style>
+/* BSOD Studio — clean studio UI */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e3e6ea;
+  --text: #1a1d21;
+  --muted: #5f6771;
+  --accent: #2563eb;
+  --accent-soft: #e8effd;
+  --accent-text: #ffffff;
+  --stage: #0f1216;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(16, 20, 26, .05), 0 8px 24px rgba(16, 20, 26, .06);
+}
+[data-theme="dark"] {
+  --bg: #0e1013;
+  --surface: #16191e;
+  --surface-2: #1c2027;
+  --border: #262b33;
+  --text: #e8eaed;
+  --muted: #98a1ab;
+  --accent: #5b8def;
+  --accent-soft: #1d2a44;
+  --accent-text: #0d1117;
+  --stage: #07090c;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-mark {
+  width: 40px; height: 40px;
+  background: #0078D7;
+  color: #fff;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+  font-weight: 600;
+  flex: none;
+  user-select: none;
+}
+.brand-text h1 { margin: 0; font-size: 16px; line-height: 1.2; }
+.brand-text p { margin: 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 44vw; }
+
+.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; }
+.tab {
+  border: 0; background: transparent; color: var(--muted);
+  padding: 6px 16px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 500;
+}
+.tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+[data-theme="dark"] .tab.active { background: var(--surface-2); }
+
+.topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.lang-select { max-width: 130px; }
+
+/* ---------- buttons & inputs ---------- */
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 9px;
+  font: inherit; font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.btn:hover { background: var(--surface-2); }
+.btn-primary {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-text);
+}
+.btn-primary:hover { filter: brightness(1.06); background: var(--accent); }
+.btn-small { padding: 4px 10px; font-size: 12px; border-radius: 7px; }
+.icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer; font-size: 15px;
+}
+.icon-btn:hover { background: var(--surface-2); }
+
+.select, input[type="text"], input[type="number"], textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font: inherit;
+}
+textarea { resize: vertical; line-height: 1.45; }
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+.mono-input { font-family: ui-monospace, Consolas, "Lucida Console", monospace; }
+
+/* ---------- layout ---------- */
+main { flex: 1; min-height: 0; display: flex; }
+.view { flex: 1; min-width: 0; min-height: 0; }
+.hidden { display: none !important; }
+
+.editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 0;
+}
+.stage-col {
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+  padding: 24px;
+}
+.stage {
+  flex: 1;
+  min-height: 0;
+  background: var(--stage);
+  background-image: radial-gradient(circle at 50% 0%, rgba(255,255,255,.05), transparent 60%);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow: hidden;
+}
+#bsodCanvas {
+  display: block;
+  border-radius: 6px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, .45);
+}
+.stage-meta {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 10px 4px 0;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- control panel ---------- */
+.panel {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+  padding: 18px 18px 32px;
+}
+.group { margin-bottom: 22px; }
+.group h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.era-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.era-chip {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.era-chip:hover { background: var(--surface-2); }
+.era-chip.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.era-sw {
+  width: 22px; height: 14px; border-radius: 4px;
+  border: 1px solid rgba(0,0,0,.15);
+  margin-bottom: 4px;
+}
+.era-name { font-size: 11.5px; font-weight: 600; line-height: 1.25; }
+.era-year { font-size: 10.5px; color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field > span:first-child { font-size: 12px; font-weight: 600; }
+.field-row { display: grid; gap: 10px; margin-bottom: 12px; }
+.field-row.two { grid-template-columns: 1fr 1fr; }
+.field-row .field { margin-bottom: 0; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text); cursor: pointer; }
+.check input { accent-color: var(--accent); width: 15px; height: 15px; }
+.hint { margin: 2px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+.color-wrap { display: flex; gap: 6px; align-items: center; }
+.color-wrap input[type="color"] {
+  width: 38px; height: 34px; padding: 2px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface); cursor: pointer; flex: none;
+}
+.color-wrap input[type="text"] { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+
+.swatches { display: flex; gap: 7px; flex-wrap: wrap; }
+.swatch {
+  width: 26px; height: 26px; border-radius: 8px;
+  border: 1px solid rgba(0,0,0,.18);
+  cursor: pointer;
+  transition: transform .1s;
+}
+.swatch:hover { transform: scale(1.12); }
+
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+/* format segmented control */
+.seg { display: flex; background: var(--surface-2); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg-btn {
+  flex: 1; border: 0; background: transparent; color: var(--muted);
+  padding: 6px 0; border-radius: 7px; font: inherit; font-weight: 600; font-size: 12.5px;
+  cursor: pointer; transition: background .12s, color .12s;
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+[data-theme="dark"] .seg-btn.active { background: var(--accent); color: var(--accent-text); }
+
+/* frame scrubber */
+.scrub-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 4px 0;
+}
+.scrub-row .icon-btn { flex: none; width: 32px; height: 32px; font-size: 12px; }
+.scrub-row input[type="range"] { flex: 1; }
+.scrub-label {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px; color: var(--muted); min-width: 56px; text-align: right;
+}
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- history ---------- */
+.history { overflow-y: auto; }
+.history-wrap { max-width: 780px; margin: 0 auto; padding: 40px 24px 64px; }
+.kicker {
+  text-transform: uppercase; letter-spacing: .12em;
+  font-size: 11px; color: var(--accent); font-weight: 700; margin: 0 0 6px;
+}
+.history-title { margin: 0 0 10px; font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; }
+.history-intro { margin: 0 0 32px; color: var(--muted); font-size: 15px; }
+
+.timeline { position: relative; padding-left: 26px; display: flex; flex-direction: column; gap: 18px; }
+.timeline::before {
+  content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px;
+  width: 2px; background: var(--border);
+}
+.tl-item { position: relative; }
+.tl-dot {
+  position: absolute; left: -26px; top: 8px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); border: 2.5px solid var(--bg);
+}
+.tl-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow);
+}
+.tl-year {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11.5px; color: var(--accent); font-weight: 700;
+}
+.tl-card h3 { margin: 2px 0 6px; font-size: 16px; }
+.tl-card p { margin: 0 0 8px; color: var(--muted); }
+.tl-card .tl-load { margin-top: 2px; }
+
+.facts-title { margin: 36px 0 12px; font-size: 18px; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fact-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+}
+.fact-card h4 { margin: 0 0 4px; font-size: 13.5px; }
+.fact-card p { margin: 0; font-size: 12.5px; color: var(--muted); }
+.swatch-row { display: flex; gap: 6px; margin-bottom: 10px; }
+.sw { width: 22px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.18); display: inline-block; }
+
+.sources { color: var(--muted); font-size: 12.5px; }
+
+/* ---------- toast & footer ---------- */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: var(--bg);
+  padding: 10px 18px; border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  z-index: 50;
+}
+.footer {
+  text-align: center; padding: 12px;
+  color: var(--muted); font-size: 11.5px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 1000px) {
+  .editor { grid-template-columns: 1fr; grid-template-rows: auto auto; }
+  .stage-col { padding: 14px; }
+  .stage { min-height: 38vh; }
+  .panel { border-left: 0; border-top: 1px solid var(--border); }
+  .brand-text p { display: none; }
+  .facts { grid-template-columns: 1fr; }
+}
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">:(</span>
+    <div class="brand-text">
+      <h1 data-i18n="appTitle">BSOD Studio</h1>
+      <p data-i18n="appTagline">Design your own blue screen of death — then save it as a picture.</p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button id="tabEditor" class="tab active" role="tab" aria-selected="true" data-i18n="tabEditor">Editor</button>
+    <button id="tabHistory" class="tab" role="tab" aria-selected="false" data-i18n="tabHistory">History</button>
+  </nav>
+  <div class="topbar-actions">
+    <select id="langSelect" class="select lang-select" aria-label="Language"></select>
+    <button id="themeBtn" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">☾</button>
+    <button id="copyBtn" class="btn" data-i18n="btnCopy">Copy image</button>
+    <button id="downloadBtn" class="btn btn-primary">Download</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ EDITOR ============ -->
+  <section id="view-editor" class="view editor">
+    <div class="stage-col">
+      <div class="stage">
+        <canvas id="bsodCanvas" width="1920" height="1080" aria-label="BSOD preview"></canvas>
+      </div>
+      <div class="scrub-row" id="scrubRow" hidden>
+        <button id="playBtn" class="icon-btn" title="Play / pause" aria-label="Play or pause animation">⏸</button>
+        <input type="range" id="frameScrub" min="0" max="20" step="1" value="0" aria-label="Scrub frames">
+        <span id="frameLabel" class="scrub-label">1 / 21</span>
+      </div>
+      <div class="stage-meta">
+        <span id="stageRes">1920 × 1080 · PNG</span>
+        <span id="stageEra" class="dim"></span>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <!-- Era preset -->
+      <section class="group">
+        <h2 data-i18n="secPreset">Era preset</h2>
+        <div id="eraGrid" class="era-grid"></div>
+      </section>
+
+      <!-- Colors -->
+      <section class="group">
+        <h2 data-i18n="secColors">Colors</h2>
+        <div class="field-row two">
+          <label class="field">
+            <span data-i18n="lblBg">Background</span>
+            <span class="color-wrap"><input type="color" id="bgColor" value="#0078D7"><input type="text" id="bgHex" value="#0078D7" maxlength="7" spellcheck="false"></span>
+          </label>
+          <label class="field">
+            <span data-i18n="lblFg">Text</span>
+            <span class="color-wrap"><input type="color" id="fgColor" value="#FFFFFF"><input type="text" id="fgHex" value="#FFFFFF" maxlength="7" spellcheck="false"></span>
+          </label>
+        </div>
+        <div id="bgSwatches" class="swatches"></div>
+        <div id="fgSwatches" class="swatches"></div>
+      </section>
+
+      <!-- Content -->
+      <section class="group" id="contentGroup">
+        <h2 data-i18n="secContent">Content</h2>
+
+        <div class="field" data-show="faceRow">
+          <label class="check"><input type="checkbox" id="showFace" checked> <span data-i18n="lblFace">Sad face</span></label>
+          <input type="text" id="faceText" value=":(" class="mono-input">
+        </div>
+
+        <div class="field" data-show="headlineRow">
+          <span data-i18n="lblHeadline">Headline</span>
+          <textarea id="headline" rows="3"></textarea>
+        </div>
+
+        <div class="field" data-show="percentRow">
+          <label class="check"><input type="checkbox" id="showPercent" checked> <span data-i18n="lblShowPercent">Show progress line</span></label>
+          <input type="number" id="percent" min="0" max="100" step="1" value="0">
+        </div>
+
+        <div class="field" data-show="infoLineRow">
+          <label class="check"><input type="checkbox" id="showInfoLine" checked> <span data-i18n="lblInfoLine">Info line</span></label>
+        </div>
+
+        <div class="field" data-show="urlRow">
+          <span data-i18n="lblUrl">Link / QR target</span>
+          <input type="text" id="qrText" value="https://www.windows.com/stopcode" spellcheck="false">
+          <p class="hint" data-i18n="qrLinkHint">Encoded as a scannable link — https:// is added automatically if missing.</p>
+          <label class="check"><input type="checkbox" id="showQr" checked> <span data-i18n="lblQr">QR code</span></label>
+          <label class="check"><input type="checkbox" id="showForMore" checked> <span data-i18n="lblShowForMore">Show info line</span></label>
+        </div>
+
+        <div class="field" data-show="supportRow">
+          <label class="check"><input type="checkbox" id="showSupport" checked> <span data-i18n="lblShowSupport">Show support note</span></label>
+          <input type="text" id="supportText" spellcheck="false">
+        </div>
+
+        <div class="field" data-show="stopRow">
+          <span data-i18n="lblStopCode">Stop code</span>
+          <input type="text" id="stopCode" list="stopCodes" value="IRQL_GT_ZERO_AT_SYSTEM_SERVICE" spellcheck="false">
+          <datalist id="stopCodes"></datalist>
+          <p class="hint" id="stopHint"></p>
+        </div>
+
+        <div class="field" data-show="failedRow">
+          <label class="check"><input type="checkbox" id="showFailed" checked> <span data-i18n="lblShowFailed">Show failed module</span></label>
+          <input type="text" id="failedText" list="failedModules" value="win32kfull.sys" spellcheck="false">
+          <datalist id="failedModules"></datalist>
+        </div>
+
+        <div class="field" data-show="hexRow">
+          <span data-i18n="lblHex">Hex code in parentheses</span>
+          <input type="text" id="hexCode" value="0x4A" spellcheck="false" class="mono-input">
+        </div>
+
+        <div class="field" data-show="bodyRow">
+          <span data-i18n="lblBody">Screen text</span>
+          <textarea id="bodyText" rows="12" class="mono-input" spellcheck="false"></textarea>
+          <p class="hint" data-i18n="lblBodyHint">80-column plain text. Changing the stop code regenerates it.</p>
+        </div>
+      </section>
+
+      <!-- Typography -->
+      <section class="group">
+        <h2 data-i18n="secTypography">Typography</h2>
+        <div class="field-row two">
+          <label class="field">
+            <span data-i18n="lblFont">Font</span>
+            <select id="fontSelect" class="select"></select>
+          </label>
+          <label class="field" id="alignField">
+            <span data-i18n="lblAlign">Alignment</span>
+            <select id="alignSelect" class="select">
+              <option value="left" data-i18n="lblAlignLeft">Left</option>
+              <option value="center" data-i18n="lblAlignCenter">Centered</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">
+          <span><span data-i18n="lblScale">Text size</span> <b id="scaleVal">100%</b></span>
+          <input type="range" id="fontScale" min="60" max="150" step="5" value="100">
+        </label>
+      </section>
+
+      <!-- Output -->
+      <section class="group">
+        <h2 data-i18n="secOutput">Output</h2>
+        <div class="field">
+          <span data-i18n="lblFormat">Format</span>
+          <div class="seg" id="formatSeg">
+            <button type="button" class="seg-btn" data-fmt="png">PNG</button>
+            <button type="button" class="seg-btn" data-fmt="gif">GIF</button>
+          </div>
+        </div>
+        <div id="animControls">
+        <div class="field">
+          <span data-i18n="lblAnim">Animation</span>
+          <select id="animSelect" class="select"></select>
+        </div>
+        <div class="field-row two" id="animRows">
+          <label class="field">
+            <span><span data-i18n="lblSpeed">Frame delay</span> <b id="speedVal">100ms</b></span>
+            <input type="range" id="animSpeed" min="30" max="400" step="10" value="100">
+          </label>
+          <label class="field" id="stepsField">
+            <span><span data-i18n="lblSteps">Steps</span> <b id="stepsVal">20</b></span>
+            <input type="range" id="animSteps" min="4" max="40" step="1" value="20">
+          </label>
+        </div>
+        <p class="hint" id="animTotal"></p>
+        </div>
+        <label class="field">
+          <span data-i18n="lblResolution">Resolution</span>
+          <select id="resSelect" class="select">
+            <option value="1920x1080" data-i18n="res1080">1920 × 1080 · Full HD</option>
+            <option value="2560x1440" data-i18n="res1440">2560 × 1440 · QHD</option>
+            <option value="3840x2160" data-i18n="res4k">3840 × 2160 · 4K</option>
+            <option value="1280x720" data-i18n="res720">1280 × 720 · HD</option>
+            <option value="1024x768" data-i18n="res43">1024 × 768 · 4:3</option>
+            <option value="800x600" data-i18n="res800">800 × 600 · 4:3</option>
+            <option value="1080x1920" data-i18n="resPortrait">1080 × 1920 · Portrait</option>
+            <option value="custom" data-i18n="resCustom">Custom</option>
+          </select>
+        </label>
+        <div class="field-row two" id="customResRow" hidden>
+          <label class="field"><span data-i18n="lblWidth">Width</span><input type="number" id="resW" min="200" max="7680" value="1920"></label>
+          <label class="field"><span data-i18n="lblHeight">Height</span><input type="number" id="resH" min="200" max="4320" value="1080"></label>
+        </div>
+        <div class="btn-row">
+          <button id="randomizeBtn" class="btn" data-i18n="btnRandomize">Randomize</button>
+          <button id="resetBtn" class="btn" data-i18n="btnReset">Reset</button>
+          <button id="shuffleBtn" class="btn" hidden data-i18n="btnShuffle">Shuffle dump</button>
+        </div>
+      </section>
+    </aside>
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section id="view-history" class="view history hidden">
+    <div class="history-wrap">
+      <p class="kicker" data-i18n="historyKicker">Field guide</p>
+      <h2 class="history-title" data-i18n="historyTitle">40 years of the blue screen</h2>
+      <p class="history-intro" data-i18n="historyIntro"></p>
+      <div id="timeline" class="timeline"></div>
+
+      <h3 class="facts-title" data-i18n="factsTitle">Trivia worth crashing for</h3>
+      <div class="facts" id="facts"></div>
+
+      <h3 class="facts-title" data-i18n="sourcesTitle">Sources</h3>
+      <p class="sources" data-i18n="sourcesNote"></p>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<footer class="footer">
+  <span>BSOD Studio · a parody picture generator. Windows is a trademark of Microsoft; not affiliated.</span>
+</footer>
+
+<script>
+/* Minimal QR code encoder (byte mode, EC level M, versions 1–40).
+   No dependencies. Verified against python `segno` in tests. */
+(function (global) {
+  'use strict';
+
+  /* ---------- GF(256) tables, primitive polynomial 0x11D ---------- */
+  var EXP = new Uint8Array(512);
+  var LOG = new Uint8Array(256);
+  (function () {
+    var x = 1;
+    for (var i = 0; i < 255; i++) {
+      EXP[i] = x;
+      LOG[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11d;
+    }
+    for (var j = 255; j < 512; j++) EXP[j] = EXP[j - 255];
+  })();
+
+  function gmul(a, b) {
+    if (a === 0 || b === 0) return 0;
+    return EXP[LOG[a] + LOG[b]];
+  }
+
+  /* Reed–Solomon generator polynomial of given degree (big-endian coeffs). */
+  function genPoly(deg) {
+    var p = [1];
+    for (var i = 0; i < deg; i++) {
+      var r = new Array(p.length + 1);
+      for (var k = 0; k < r.length; k++) r[k] = 0;
+      for (var j = 0; j < p.length; j++) {
+        r[j] ^= p[j];
+        r[j + 1] ^= gmul(p[j], EXP[i]);
+      }
+      p = r;
+    }
+    return p;
+  }
+
+  function rsRemainder(data, ecLen) {
+    var gen = genPoly(ecLen);
+    var res = new Uint8Array(data.length + ecLen);
+    res.set(data);
+    for (var i = 0; i < data.length; i++) {
+      var coef = res[i];
+      if (coef !== 0) {
+        for (var j = 0; j < gen.length; j++) res[i + j] ^= gmul(gen[j], coef);
+      }
+    }
+    return res.slice(data.length);
+  }
+
+  /* ---------- Block structure tables, EC level M ----------
+     [ecPerBlock, group1Blocks, group1DataCodewords, group2Blocks, group2DataCodewords] */
+  var BLOCKS_M = {
+    1: [10, 1, 16, 0, 0],      2: [16, 1, 28, 0, 0],
+    3: [26, 1, 44, 0, 0],      4: [18, 2, 32, 0, 0],
+    5: [24, 2, 43, 0, 0],      6: [16, 4, 27, 0, 0],
+    7: [18, 4, 31, 0, 0],      8: [22, 2, 38, 2, 39],
+    9: [22, 3, 36, 2, 37],     10: [26, 4, 43, 1, 44],
+    11: [30, 1, 50, 4, 51],    12: [22, 6, 36, 2, 37],
+    13: [22, 8, 37, 1, 38],    14: [24, 4, 40, 5, 41],
+    15: [24, 5, 41, 5, 42],    16: [28, 7, 45, 3, 46],
+    17: [28, 10, 46, 1, 47],   18: [26, 9, 43, 4, 44],
+    19: [26, 3, 44, 11, 45],   20: [26, 3, 41, 13, 42],
+    21: [26, 17, 42, 0, 0],    22: [28, 17, 46, 0, 0],
+    23: [28, 4, 47, 14, 48],   24: [28, 6, 45, 14, 46],
+    25: [28, 8, 47, 13, 48],   26: [28, 19, 46, 4, 47],
+    27: [28, 22, 45, 3, 46],   28: [28, 3, 45, 23, 46],
+    29: [28, 21, 45, 7, 46],   30: [28, 19, 47, 10, 48],
+    31: [28, 2, 46, 29, 47],   32: [28, 10, 46, 23, 47],
+    33: [28, 14, 46, 21, 47],  34: [28, 14, 46, 23, 47],
+    35: [28, 12, 47, 26, 48],  36: [28, 6, 47, 34, 48],
+    37: [28, 29, 46, 14, 47],  38: [28, 13, 46, 32, 47],
+    39: [28, 40, 47, 7, 48],   40: [28, 18, 47, 31, 48]
+  };
+
+  /* Alignment pattern center coordinates, versions 1–40 (v1 = none). */
+  var ALIGN = {
+    1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34],
+    7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50],
+    11: [6, 30, 54], 12: [6, 32, 58], 13: [6, 34, 62],
+    14: [6, 26, 46, 66], 15: [6, 26, 48, 70], 16: [6, 26, 50, 74],
+    17: [6, 30, 54, 78], 18: [6, 30, 56, 82], 19: [6, 30, 58, 86],
+    20: [6, 34, 62, 90],
+    21: [6, 28, 50, 72, 94], 22: [6, 26, 50, 74, 98], 23: [6, 30, 54, 78, 102],
+    24: [6, 28, 54, 80, 106], 25: [6, 32, 58, 84, 110], 26: [6, 30, 58, 86, 114],
+    27: [6, 34, 62, 90, 118],
+    28: [6, 26, 50, 74, 98, 122], 29: [6, 30, 54, 78, 102, 126],
+    30: [6, 26, 52, 78, 104, 130], 31: [6, 30, 56, 82, 108, 134],
+    32: [6, 34, 60, 86, 112, 138], 33: [6, 30, 58, 86, 114, 142],
+    34: [6, 34, 62, 90, 118, 146],
+    35: [6, 30, 54, 78, 102, 126, 150], 36: [6, 24, 50, 76, 102, 128, 154],
+    37: [6, 28, 54, 80, 106, 132, 158], 38: [6, 32, 58, 84, 110, 136, 162],
+    39: [6, 26, 54, 82, 110, 138, 166], 40: [6, 30, 58, 86, 114, 142, 170]
+  };
+
+  /* ---------- BCH helpers ---------- */
+  var G15 = 0x537;      /* x^10 + x^8 + x^5 + x^4 + x^2 + x + 1 */
+  var G15_MASK = 0x5412;
+  var G18 = 0x1f25;     /* x^12 + x^11 + x^10 + x^9 + x^8 + x^5 + x^2 + 1 */
+
+  function bchDigit(data) {
+    var d = 0;
+    while (data !== 0) { d++; data >>>= 1; }
+    return d;
+  }
+
+  function bchTypeInfo(data) {
+    var d = data << 10;
+    while (bchDigit(d) - bchDigit(G15) >= 0) d ^= (G15 << (bchDigit(d) - bchDigit(G15)));
+    return ((data << 10) | d) ^ G15_MASK;
+  }
+
+  function bchTypeNumber(data) {
+    var d = data << 12;
+    while (bchDigit(d) - bchDigit(G18) >= 0) d ^= (G18 << (bchDigit(d) - bchDigit(G18)));
+    return (data << 12) | d;
+  }
+
+  /* ---------- Mask patterns ---------- */
+  function maskAt(pattern, i, j) {
+    switch (pattern) {
+      case 0: return (i + j) % 2 === 0;
+      case 1: return i % 2 === 0;
+      case 2: return j % 3 === 0;
+      case 3: return (i + j) % 3 === 0;
+      case 4: return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
+      case 5: return ((i * j) % 2) + ((i * j) % 3) === 0;
+      case 6: return (((i * j) % 2) + ((i * j) % 3)) % 2 === 0;
+      case 7: return (((i + j) % 2) + ((i * j) % 3)) % 2 === 0;
+    }
+    return false;
+  }
+
+  /* ---------- Penalty scoring (ISO/IEC 18004) ---------- */
+  function penalty(m, size) {
+    var score = 0, r, c, run;
+    var dark = 0;
+
+    /* rule 1: runs of ≥5 same-colour modules in rows and columns */
+    for (r = 0; r < size; r++) {
+      run = 1;
+      for (c = 1; c < size; c++) {
+        if (m[r][c] === m[r][c - 1]) { run++; }
+        else { if (run >= 5) score += 3 + (run - 5); run = 1; }
+      }
+      if (run >= 5) score += 3 + (run - 5);
+    }
+    for (c = 0; c < size; c++) {
+      run = 1;
+      for (r = 1; r < size; r++) {
+        if (m[r][c] === m[r - 1][c]) { run++; }
+        else { if (run >= 5) score += 3 + (run - 5); run = 1; }
+      }
+      if (run >= 5) score += 3 + (run - 5);
+    }
+
+    /* rule 2: 2x2 blocks of same colour */
+    for (r = 0; r < size - 1; r++) {
+      for (c = 0; c < size - 1; c++) {
+        var v = m[r][c];
+        if (v === m[r][c + 1] && v === m[r + 1][c] && v === m[r + 1][c + 1]) score += 3;
+      }
+    }
+
+    /* rule 3: finder-like pattern 1011101 with 0000 on either side */
+    var P1 = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
+    var P2 = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1];
+    function match(get, start, pat) {
+      for (var k = 0; k < 11; k++) if (get(start + k) !== pat[k]) return false;
+      return true;
+    }
+    for (r = 0; r < size; r++) {
+      for (c = 0; c + 11 <= size; c++) {
+        var rowGet = (function (rr) { return function (x) { return m[rr][x] ? 1 : 0; }; })(r);
+        var colGet = (function (cc) { return function (x) { return m[x][cc] ? 1 : 0; }; })(r);
+        if (match(rowGet, c, P1) || match(rowGet, c, P2)) score += 40;
+        if (match(colGet, c, P1) || match(colGet, c, P2)) score += 40;
+      }
+    }
+
+    /* rule 4: proportion of dark modules */
+    for (r = 0; r < size; r++) for (c = 0; c < size; c++) if (m[r][c]) dark++;
+    var pct = (dark * 100) / (size * size);
+    score += Math.floor(Math.abs(pct - 50) / 5) * 10;
+
+    return score;
+  }
+
+  /* ---------- Encoding pipeline ---------- */
+
+  function toBytes(str) {
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(str);
+    /* fallback: manual UTF-8 */
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+      var cc = str.charCodeAt(i);
+      if (cc < 0x80) out.push(cc);
+      else if (cc < 0x800) out.push(0xc0 | (cc >> 6), 0x80 | (cc & 63));
+      else if (cc >= 0xd800 && cc <= 0xdbff) {
+        var lo = str.charCodeAt(++i);
+        var cp = 0x10000 + ((cc - 0xd800) << 10) + (lo - 0xdc00);
+        out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+      } else out.push(0xe0 | (cc >> 12), 0x80 | ((cc >> 6) & 63), 0x80 | (cc & 63));
+    }
+    return new Uint8Array(out);
+  }
+
+  function dataCapacityBytes(version) {
+    var t = BLOCKS_M[version];
+    var dataCw = t[1] * t[2] + t[3] * t[4];
+    var ccBits = version < 10 ? 8 : 16;   /* byte mode count indicator */
+    return Math.floor((dataCw * 8 - 4 - ccBits) / 8);
+  }
+
+  function pickVersion(byteLen) {
+    for (var v = 1; v <= 40; v++) if (dataCapacityBytes(v) >= byteLen) return v;
+    throw new Error('QR: data too long for level M (max ' + dataCapacityBytes(40) + ' bytes)');
+  }
+
+  function buildCodewords(bytes, version) {
+    var t = BLOCKS_M[version];
+    var ecLen = t[0], g1 = t[1], d1 = t[2], g2 = t[3], d2 = t[4];
+    var dataCw = g1 * d1 + g2 * d2;
+
+    /* bit stream: mode(0100) + count + data + terminator + padding */
+    var bits = [];
+    function push(val, len) { for (var i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); }
+    push(4, 4);
+    push(bytes.length, version < 10 ? 8 : 16);
+    for (var i = 0; i < bytes.length; i++) push(bytes[i], 8);
+    var cap = dataCw * 8;
+    for (var t2 = 0; t2 < 4 && bits.length < cap; t2++) bits.push(0);
+    while (bits.length % 8 !== 0) bits.push(0);
+
+    var cw = [];
+    for (var b = 0; b < bits.length; b += 8) {
+      var v = 0;
+      for (var k = 0; k < 8; k++) v = (v <<  1) | bits[b + k];
+      cw.push(v);
+    }
+    var pads = [0xec, 0x11], pi = 0;
+    while (cw.length < dataCw) cw.push(pads[pi++ % 2]);
+
+    /* split into blocks, RS-encode, interleave */
+    var blocks = [], ecBlocks = [], pos = 0, bi;
+    for (bi = 0; bi < g1; bi++) { blocks.push(cw.slice(pos, pos + d1)); pos += d1; }
+    for (bi = 0; bi < g2; bi++) { blocks.push(cw.slice(pos, pos + d2)); pos += d2; }
+    for (bi = 0; bi < blocks.length; bi++) ecBlocks.push(rsRemainder(new Uint8Array(blocks[bi]), ecLen));
+
+    var out = [], col;
+    var maxData = Math.max(d1, d2 || 0);
+    for (col = 0; col < maxData; col++) {
+      for (bi = 0; bi < blocks.length; bi++) {
+        if (col < blocks[bi].length) out.push(blocks[bi][col]);
+      }
+    }
+    for (col = 0; col < ecLen; col++) {
+      for (bi = 0; bi < ecBlocks.length; bi++) out.push(ecBlocks[bi][col]);
+    }
+    return out;
+  }
+
+  function setupPositionProbe(m, size, row, col) {
+    var r, c;
+    for (r = -1; r <= 7; r++) {
+      if (row + r <= -1 || size <= row + r) continue;
+      for (c = -1; c <= 7; c++) {
+        if (col + c <= -1 || size <= col + c) continue;
+        var on =
+          (0 <= r && r <= 6 && (c === 0 || c === 6)) ||
+          (0 <= c && c <= 6 && (r === 0 || r === 6)) ||
+          (2 <= r && r <= 4 && 2 <= c && c <= 4);
+        m[row + r][col + c] = on;
+      }
+    }
+  }
+
+  function setupFunctionPatterns(m, size, version) {
+    var r, c;
+    /* finders + separators */
+    setupPositionProbe(m, size, 0, 0);
+    setupPositionProbe(m, size, size - 7, 0);
+    setupPositionProbe(m, size, 0, size - 7);
+
+    /* timing patterns */
+    for (r = 8; r < size - 8; r++) { m[r][6] = (r % 2 === 0); m[6][r] = (r % 2 === 0); }
+
+    /* alignment patterns */
+    var ap = ALIGN[version];
+    for (var i = 0; i < ap.length; i++) {
+      for (var j = 0; j < ap.length; j++) {
+        var row = ap[i], col = ap[j];
+        /* omit only the three that would coincide with finder patterns;
+           timing patterns pass *through* the remaining ones (ISO 18004) */
+        if ((row === 6 && col === 6) ||
+            (row === 6 && col === size - 7) ||
+            (row === size - 7 && col === 6)) continue;
+        for (r = -2; r <= 2; r++) {
+          for (c = -2; c <= 2; c++) {
+            m[row + r][col + c] = (r === -2 || r === 2 || c === -2 || c === 2 || (r === 0 && c === 0));
+          }
+        }
+      }
+    }
+
+    /* reserve format info areas (values set later) */
+    for (r = 0; r < 9; r++) {
+      if (m[r][8] === null || m[r][8] === undefined) m[r][8] = false;
+      if (m[8][r] === null || m[8][r] === undefined) m[8][r] = false;
+    }
+    for (r = 0; r < 8; r++) { m[8][size - 1 - r] = false; m[size - 1 - r][8] = false; }
+    m[size - 8][8] = true; /* dark module */
+
+    /* version info areas (v >= 7) */
+    if (version >= 7) {
+      var vinfo = bchTypeNumber(version);
+      for (r = 0; r < 18; r++) {
+        var mod = ((vinfo >> r) & 1) === 1;
+        m[Math.floor(r / 3)][(r % 3) + size - 8 - 3] = mod;
+        m[(r % 3) + size - 8 - 3][Math.floor(r / 3)] = mod;
+      }
+    }
+  }
+
+  function placeFormatInfo(m, size, mask) {
+    var bits = bchTypeInfo((0 /* level M = 00 */ << 3) | mask);
+    var r;
+    for (r = 0; r < 15; r++) {
+      var mod = ((bits >> r) & 1) === 1;
+      /* vertical copy */
+      if (r < 6) m[r][8] = mod;
+      else if (r < 8) m[r + 1][8] = mod;
+      else m[size - 15 + r][8] = mod;
+      /* horizontal copy */
+      if (r < 8) m[8][size - r - 1] = mod;
+      else if (r < 9) m[8][15 - r - 1 + 1] = mod;
+      else m[8][15 - r - 1] = mod;
+    }
+    m[size - 8][8] = true;
+  }
+
+  function mapData(m, size, data, mask) {
+    var inc = -1, row = size - 1, bitIndex = 7, byteIndex = 0;
+    for (var col = size - 1; col > 0; col -= 2) {
+      if (col === 6) col--;
+      while (true) {
+        for (var c = 0; c < 2; c++) {
+          if (m[row][col - c] === null || m[row][col - c] === undefined) {
+            var dark = false;
+            if (byteIndex < data.length) dark = ((data[byteIndex] >>> bitIndex) & 1) === 1;
+            if (maskAt(mask, row, col - c)) dark = !dark;
+            m[row][col - c] = dark;
+            bitIndex--;
+            if (bitIndex === -1) { byteIndex++; bitIndex = 7; }
+          }
+        }
+        row += inc;
+        if (row < 0 || row >= size) { row -= inc; inc = -inc; break; }
+      }
+    }
+  }
+
+  function tryMask(bytes, version, size, mask) {
+    var m = [];
+    for (var r = 0; r < size; r++) m.push(new Array(size).fill(null));
+    setupFunctionPatterns(m, size, version);
+    mapData(m, size, bytes, mask);
+    placeFormatInfo(m, size, mask);
+    /* normalize nulls (shouldn't be any, but be safe) */
+    for (r = 0; r < size; r++) for (var c = 0; c < size; c++) if (m[r][c] === null) m[r][c] = false;
+    return m;
+  }
+
+  /**
+   * Encode text into a QR matrix.
+   * @returns {{size:number, version:number, mask:number, modules:boolean[][]}}
+   */
+  function encode(text) {
+    var bytes = toBytes(String(text));
+    var version = pickVersion(bytes.length);
+    var size = 17 + 4 * version;
+    var cw = buildCodewords(bytes, version);
+
+    var best = null, bestScore = Infinity, bestMask = 0;
+    for (var mask = 0; mask < 8; mask++) {
+      var m = tryMask(cw, version, size, mask);
+      var s = penalty(m, size);
+      if (s < bestScore) { bestScore = s; best = m; bestMask = mask; }
+    }
+    return { size: size, version: version, mask: bestMask, modules: best };
+  }
+
+  var QR = { encode: encode };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = QR;
+  else global.QR = QR;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+/* BSOD Studio — i18n dictionaries.
+   Structure:
+     I18N[lang].ui      — interface strings
+     I18N[lang].bsod    — authentic on-screen BSOD templates ({n},{url},{code},{file} placeholders)
+     I18N[lang].hist    — history timeline (id -> {t: title, b: body})
+   Missing keys fall back to English. */
+(function (global) {
+  'use strict';
+
+  var EN_BSOD = {
+    bHeadPc: "Your PC ran into a problem and needs to restart. We're just collecting some error info, and then we'll restart for you.",
+    bHeadDev: "Your device ran into a problem and needs to restart. We're just collecting some error info, and then we'll restart for you.",
+    bPercent: "{n}% complete",
+    bForMore: "For more information about this issue and possible fixes, visit {url}",
+    bSupport: "If you call a support person, give them this info:",
+    bStopLabel: "Stop code:",
+    bFailedLabel: "What failed:",
+    bWin8Info: "If you'd like to know more, you can search online later for this error: {code}",
+    bBlackHead: "Your device ran into a problem and needs to restart.",
+    bXpIntro: "A problem has been detected and Windows has been shut down to prevent damage to your computer.",
+    bXpFirst: "If this is the first time you've seen this Stop error screen, restart your computer. If this screen appears again, follow these steps:",
+    bXpSteps1: "Check to make sure any new hardware or software is properly installed. If this is a new installation, ask your hardware or software manufacturer for any Windows updates you might need.",
+    bXpSteps2: "If problems continue, disable or remove any newly installed hardware or software. Disable BIOS memory options such as caching or shadowing. If you need to use Safe Mode to remove or disable components, restart your computer, press F8 to select Advanced Startup Options, and then select Safe Mode.",
+    bXpTech: "Technical Information:",
+    b9xFatal: "A fatal exception 0E has occurred at 0028:C0011E36 in VXD VMM(01) +\n00010E36. The current application will be terminated.",
+    b9xKeys: "*  Press any key to terminate the current application.\n*  Press CTRL+ALT+DEL again to restart your computer. You will\n   lose any unsaved information in all applications.\n\nPress any key to continue _",
+    bNtBottom: "Restart and set recovery options in Control Panel. If the problem persists, contact your system administrator or technical support group."
+  };
+
+  var EN_UI = {
+    appTitle: "BSOD Studio",
+    appTagline: "Design your own blue screen of death — then save it as a picture.",
+    tabEditor: "Editor",
+    tabHistory: "History",
+    btnDownload: "Download PNG",
+    btnCopy: "Copy image",
+    btnRandomize: "Randomize",
+    btnReset: "Reset",
+    btnShuffle: "Shuffle dump",
+    btnLoad: "Load in editor",
+    toastCopied: "Image copied to clipboard",
+    toastCopyFail: "Couldn't copy — use Download instead",
+    secPreset: "Era preset",
+    secColors: "Colors",
+    secContent: "Content",
+    secTypography: "Typography",
+    secOutput: "Output",
+    lblBg: "Background",
+    lblFg: "Text",
+    lblFace: "Sad face",
+    lblHeadline: "Headline",
+    lblPercent: "Percent",
+    lblShowPercent: "Show progress line",
+    lblUrl: "Link / QR target",
+    lblShowForMore: "Show info line",
+    lblInfoLine: "Info line",
+    lblSupport: "Support note",
+    lblShowSupport: "Show support note",
+    lblStopCode: "Stop code",
+    lblFailed: "Failed module",
+    lblShowFailed: "Show failed module",
+    lblHex: "Hex code in parentheses",
+    lblBody: "Screen text",
+    lblBodyHint: "80-column plain text. Changing the stop code regenerates it.",
+    lblQr: "QR code",
+    lblFont: "Font",
+    lblScale: "Text size",
+    lblAlign: "Alignment",
+    lblAlignLeft: "Left",
+    lblAlignCenter: "Centered",
+    lblResolution: "Resolution",
+    lblCustom: "Custom",
+    lblWidth: "Width",
+    lblHeight: "Height",
+    fontSegoe: "Segoe UI (authentic)",
+    fontArial: "Arial",
+    fontVerdana: "Verdana",
+    fontSystem: "System UI",
+    fontConsolas: "Consolas (authentic)",
+    fontLucida: "Lucida Console",
+    fontCourier: "Courier New",
+    fontDejavu: "DejaVu Sans Mono",
+    res1080: "1920 × 1080 · Full HD",
+    res1440: "2560 × 1440 · QHD",
+    res4k: "3840 × 2160 · 4K",
+    res720: "1280 × 720 · HD",
+    res43: "1024 × 768 · 4:3",
+    res800: "800 × 600 · 4:3",
+    resPortrait: "1080 × 1920 · Portrait",
+    resCustom: "Custom",
+    presetNt: "Windows NT 3.x",
+    presetWin9x: "Windows 95/98",
+    presetXp: "Windows 2000/XP",
+    presetWin8: "Windows 8/8.1",
+    presetWin10: "Windows 10",
+    presetWin11: "Windows 11",
+    presetGsod: "Insider green",
+    presetBlack: "Black (2025)",
+    presetCustom: "Free edit",
+    hintClassic: "Tip: the classic screens are plain 80-column text — edit freely.",
+    historyKicker: "Field guide",
+    historyTitle: "40 years of the blue screen",
+    historyIntro: "From mojibake boot errors in Windows 1.0 to the black “unexpected restart” screen of 2025 — the whole story, with presets you can load straight into the editor.",
+    factsTitle: "Trivia worth crashing for",
+    factColorsT: "One screen, many colors",
+    factColorsB: "#0000A8 NT 3.1–4.0 · #000080 2000–7 · #1A67B3 8→10 (1511) · #0078D7 10 (1607)+ · #246F24 Insider green · #000000 since 2025",
+    factBallmerT: "Written by Ballmer",
+    factBallmerB: "Microsoft executives revealed in 2014 that Steve Ballmer personally wrote the classic message.",
+    factCustomT: "Customizable — once",
+    factCustomB: "Windows 3.1, 95 and 98 could recolor the BSOD via SYSTEM.INI. The NT family hard-coded it forever after.",
+    factCrowdT: "8.5 million screens",
+    factCrowdB: "The CrowdStrike incident of July 19, 2024 is believed to be the largest single cause of BSODs ever.",
+    gifFail: "Couldn\u2019t encode the GIF — try a smaller resolution.",
+    lblFormat: "Format",
+    qrLinkHint: "Encoded as a scannable link — https:// is added automatically if missing.",
+    btnGif: "Download GIF",
+    gifBusy: "Encoding…",
+    lblAnim: "Animation",
+    animOff: "Static",
+    animPercent: "Percent count-up",
+    animCursor: "Cursor blink",
+    lblSpeed: "Frame delay",
+    lblSteps: "Steps",
+    sourcesTitle: "Sources",
+    sourcesNote: "Wikipedia — Blue screen of death · CNBC (Jun 26, 2025) · Microsoft Windows Insider Blog (Mar 28, 2025) · The Verge · Microsoft Learn."
+  };
+
+  var EN_HIST = {
+    pre:    { t: "Before the blue screen", b: "Windows 1.0 and 2.0 showed blue boot messages like “Incorrect DOS version” (printed as mojibake in shipping builds), but real crashes simply froze the machine or dropped you back to DOS." },
+    win31:  { t: "Windows 3.1 turns blue", b: "Windows 3.0 rendered errors in text mode; 3.1 switched the background to blue. Uniquely, 3.1/95/98 let you recolor it via SYSTEM.INI — the only customizable BSODs ever." },
+    nt:     { t: "NT 3.1: the first real BSOD", b: "Windows NT 3.1 introduced the *** STOP: format — the moment “stop error” was born. Registers, memory values and no friendly words: you needed a debugger to learn more." },
+    nine:   { t: "Fatal exception 0E", b: "The 9x era ran on an 80×25 text screen. Famous appearances: Bill Gates' live Windows 98 BSOD at COMDEX (April 1998), and the c:\\con\\con URL trick that crashed friends' PCs (patched in March 2000)." },
+    xp:     { t: "The reassuring navy screen", b: "Windows 2000/XP/Vista/7 spoke human: “A problem has been detected…” with step-by-step advice and Technical Information below. In 2014 Microsoft confirmed the wording was written by Steve Ballmer." },
+    eight:  { t: "Windows 8 grows a sad face", b: "Windows 8 replaced the wall of text with Segoe UI, a giant “:(”, one plain sentence and a percentage. Cerulean #1A67B3." },
+    qr:     { t: "QR codes and the green screen", b: "Windows 10's Anniversary Update (build 14316) added a QR code so you could scan the error from your phone. Insiders got their own green version (#246F24) so beta crashes are never mistaken for real ones." },
+    device: { t: "PC becomes device", b: "Windows 10 version 2004 quietly changed every “Your PC ran into a problem” to “Your device ran into a problem”." },
+    eleven: { t: "Windows 11 tries black", b: "Early Windows 11 builds shipped a black BSOD, then reverted to dark blue at build 22000.348. The experiment previewed what was coming." },
+    crowd:  { t: "The largest BSOD in history", b: "July 19, 2024: a faulty CrowdStrike channel file (csagent.sys) crashed roughly 8.5 million Windows machines — airlines, hospitals, banks — all showing PAGE_FAULT_IN_NONPAGED_AREA. The outage pushed Microsoft to rethink the screen.", legend: "crowdstrike" },
+    black:  { t: "Goodbye blue, hello black", b: "On June 26, 2025 Microsoft confirmed the BSOD turns black in Windows 11 24H2: no sad face, no QR, centered text, and the stop code with a hex code in parentheses at the bottom — an “unexpected restart” screen designed for faster recoveries, rolling out with Quick Machine Recovery.", legend: "black2025" },
+    comdex: { t: "COMDEX, live on stage", b: "April 20, 1998: during the Windows 98 Plug & Play demo at COMDEX, the scanner driver obliged with a live fatal exception 0E. Bill Gates: “That's why we're not shipping Windows 98 yet.”", legend: "comdex" },
+    concon: { t: "c:\\con\\con", b: "In Windows 95/98, “con” was a reserved device name — but the shell happily accepted c:\\con\\con as a path and crashed with a fatal exception. A beloved prank, fixed by patch MS00-017 in March 2000.", legend: "concon" }
+  };
+
+  var EN = { ui: EN_UI, bsod: EN_BSOD, hist: EN_HIST, stopMeanings: {
+    IRQL_NOT_LESS_OR_EQUAL: "A driver accessed kernel memory at an improper request level — usually a faulty driver or RAM.",
+    PAGE_FAULT_IN_NONPAGED_AREA: "Invalid memory referenced in a non-paged area — bad RAM or a driver (this was the 2024 CrowdStrike crash).",
+    CRITICAL_PROCESS_DIED: "A critical system process died — corrupted files or failing hardware.",
+    SYSTEM_SERVICE_EXCEPTION: "An exception in a system service, often a bad driver.",
+    KERNEL_SECURITY_CHECK_FAILURE: "The kernel detected stack corruption — driver or memory issue.",
+    DPC_WATCHDOG_VIOLATION: "A deferred procedure call hung — often an SSD firmware or driver issue.",
+    VIDEO_TDR_FAILURE: "The graphics driver stopped responding and did not recover.",
+    UNEXPECTED_KERNEL_MODE_TRAP: "A kernel trap to an invalid address — overheating or bad memory.",
+    INACCESSIBLE_BOOT_DEVICE: "Windows can no longer see the boot drive — storage driver or controller change.",
+    SYSTEM_THREAD_EXCEPTION_NOT_HANDLED: "A system thread crashed — usually a driver.",
+    MEMORY_MANAGEMENT: "A memory management error — RAM or a driver.",
+    NTFS_FILE_SYSTEM: "The NTFS file system driver crashed — disk corruption.",
+    WHEA_UNCORRECTABLE_ERROR: "Hardware reported an uncorrectable error — CPU, PSU or thermals.",
+    KMODE_EXCEPTION_NOT_HANDLED: "A kernel-mode driver raised an exception it shouldn't.",
+    APC_INDEX_MISMATCH: "An asynchronous procedure call mismatch — often a display driver.",
+    IRQL_GT_ZERO_AT_SYSTEM_SERVICE: "A system service was called at an elevated request level — faulty driver.",
+    CLOCK_WATCHDOG_TIMEOUT: "A processor core failed to respond in time — CPU or thermal issue."
+  } };
+
+  var ZH = {
+    ui: {
+      appTitle: "BSOD 工作室",
+      appTagline: "设计你自己的蓝屏死机画面，并保存为图片。",
+      tabEditor: "编辑器", tabHistory: "历史",
+      btnDownload: "下载 PNG", btnCopy: "复制图片", btnRandomize: "随机生成", btnReset: "重置",
+      btnShuffle: "重新生成转储", btnLoad: "在编辑器中加载",
+      toastCopied: "图片已复制到剪贴板", toastCopyFail: "复制失败，请改用下载",
+      secPreset: "时代预设", secColors: "颜色", secContent: "内容", secTypography: "排版", secOutput: "输出",
+      lblBg: "背景", lblFg: "文字", lblFace: "表情", lblHeadline: "标题", lblPercent: "进度",
+      lblShowPercent: "显示进度行", lblUrl: "链接 / 二维码内容", lblShowForMore: "显示更多信息行",
+      lblInfoLine: "信息行", lblSupport: "支持提示", lblShowSupport: "显示支持提示",
+      lblStopCode: "停止代码", lblFailed: "故障模块", lblShowFailed: "显示故障模块",
+      lblHex: "括号中的十六进制错误码", lblBody: "屏幕文本",
+      lblBodyHint: "80 列纯文本。更改停止代码会重新生成。", lblQr: "二维码",
+      lblFont: "字体", lblScale: "文字大小", lblAlign: "对齐",
+      lblAlignLeft: "左对齐", lblAlignCenter: "居中",
+      lblResolution: "分辨率", lblCustom: "自定义", lblWidth: "宽度", lblHeight: "高度",
+      fontSegoe: "Segoe UI（原版）", fontConsolas: "Consolas（原版）",
+      res1080: "1920 × 1080 · 全高清", res1440: "2560 × 1440 · 2K", res4k: "3840 × 2160 · 4K",
+      res720: "1280 × 720 · 高清", res43: "1024 × 768 · 4:3", res800: "800 × 600 · 4:3",
+      resPortrait: "1080 × 1920 · 竖屏", resCustom: "自定义",
+      presetNt: "Windows NT 3.x", presetWin9x: "Windows 95/98", presetXp: "Windows 2000/XP",
+      presetWin8: "Windows 8/8.1", presetWin10: "Windows 10", presetWin11: "Windows 11",
+      presetGsod: "预览版绿色", presetBlack: "黑色（2025）", presetCustom: "自由编辑",
+      hintClassic: "提示：经典蓝屏就是 80 列纯文本，随便改。",
+      historyKicker: "图鉴", historyTitle: "蓝屏四十年",
+      historyIntro: "从 Windows 1.0 的乱码启动错误，到 2025 年的黑色“意外重启”屏幕——这是蓝屏的完整历史，所有预设都可以一键加载到编辑器中。",
+      factsTitle: "值得一崩的冷知识",
+      factColorsT: "一屏多色",
+      factColorsB: "#0000A8 NT 3.1–4.0 · #000080 2000–7 · #1A67B3 8→10 (1511) · #0078D7 10 (1607)+ · #246F24 预览版绿 · #000000 2025 起",
+      factBallmerT: "鲍尔默亲笔",
+      factBallmerB: "微软高管在 2014 年透露，经典蓝屏文案由史蒂夫·鲍尔默亲自撰写。",
+      factCustomT: "曾可自定义",
+      factCustomB: "Windows 3.1、95 和 98 可以通过 SYSTEM.INI 修改蓝屏颜色；NT 内核家族则永远把它写死了。",
+      factCrowdT: "850 万块屏幕",
+      factCrowdB: "2024 年 7 月 19 日的 CrowdStrike 事件被认为是史上单一原因导致的最大规模蓝屏。",
+    gifFail: "GIF 编码失败——请尝试更小的分辨率。",
+    lblFormat: "格式",
+    qrLinkHint: "二维码按网址链接编码——缺少 https:// 时会自动补全。",
+      btnGif: "下载 GIF",
+    gifBusy: "编码中…",
+      lblAnim: "动画",
+      animOff: "静态",
+      animPercent: "进度递增",
+      animCursor: "光标闪烁",
+      lblSpeed: "帧延迟",
+      lblSteps: "帧数",
+      sourcesTitle: "资料来源",
+      sourcesNote: "Wikipedia — Blue screen of death · CNBC（2025-06-26）· Microsoft Windows Insider Blog（2025-03-28）· The Verge · Microsoft Learn。"
+    },
+    bsod: {
+      bHeadPc: "你的电脑遇到问题，需要重新启动。我们只收集一些错误信息，然后为你重新启动。",
+      bHeadDev: "你的设备遇到问题，需要重新启动。我们只收集一些错误信息，然后为你重新启动。",
+      bPercent: "已完成 {n}%",
+      bForMore: "有关此问题和可能解决方法的详细信息，请访问 {url}",
+      bSupport: "如果致电支持人员，请向他们提供以下信息：",
+      bStopLabel: "停止代码:",
+      bFailedLabel: "失败的内容:",
+      bWin8Info: "如果你想了解详细信息，可以稍后联机搜索该错误: {code}",
+      bBlackHead: "你的设备遇到问题，需要重新启动。",
+      bXpIntro: "已检测到问题，并且已关闭 Windows 以防止损坏您的计算机。",
+      bXpFirst: "如果这是您第一次看到此“停止错误”屏幕，请重新启动计算机。如果再次出现此屏幕，请按照下列步骤操作:",
+      bXpSteps1: "检查以确保正确安装了任何新硬件或软件。如果这是新安装的，请向硬件或软件制造商索取您可能需要的任何 Windows 更新。",
+      bXpSteps2: "如果问题仍然存在，请禁用或删除任何新安装的硬件或软件。禁用 BIOS 内存选项（如缓存或遮蔽）。如果需要使用安全模式删除或禁用组件，请重新启动计算机，按 F8 选择高级启动选项，然后选择安全模式。",
+      bXpTech: "技术信息:",
+      b9xFatal: "发生致命异常 0E，位于 0028:C0011E36，VXD VMM(01) +\n00010E36。当前应用程序将被终止。",
+      b9xKeys: "*  按任意键终止当前应用程序。\n*  再次按 CTRL+ALT+DEL 重新启动计算机。您将\n   丢失所有应用程序中未保存的信息。\n\n按任意键继续 _",
+      bNtBottom: "请重新启动并在控制面板中设置恢复选项。如果问题仍然存在，请联系系统管理员或技术支持组。"
+    },
+    hist: {
+      pre:    { t: "蓝屏出现之前", b: "Windows 1.0 和 2.0 在启动时会显示蓝色提示（如“Incorrect DOS version”，正式版里显示为乱码），但真正的崩溃只会让系统卡死或退回 DOS。" },
+      win31:  { t: "Windows 3.1 变蓝", b: "Windows 3.0 用文本模式显示错误；3.1 把背景换成了蓝色。更特别的是，3.1/95/98 允许通过 SYSTEM.INI 自定义颜色——这是历史上仅有的可自定义蓝屏。" },
+      nt:     { t: "NT 3.1：第一块真正的蓝屏", b: "Windows NT 3.1 引入了 *** STOP: 格式，“停止错误”由此得名。屏幕上是寄存器和内存转储，没有任何友好提示——想弄明白得靠调试器。" },
+      nine:   { t: "致命异常 0E", b: "9x 时代运行在 80×25 的文本屏幕上。名场面包括：比尔·盖茨在 COMDEX 1998 上演示 Windows 98 时当场蓝屏，以及输入 c:\\con\\con 就能让朋友的电脑崩溃的恶作剧（2000 年 3 月修复）。" },
+      xp:     { t: "安心的深蓝屏", b: "Windows 2000/XP/Vista/7 开始说人话：“检测到问题……”并给出一步步的建议，下方是技术信息。2014 年微软证实这段文字出自史蒂夫·鲍尔默之手。" },
+      eight:  { t: "Windows 8 有了哭脸", b: "Windows 8 用 Segoe UI、一个巨大的“:(”、一句大白话和百分比进度取代了整屏文字。配色为青蓝色 #1A67B3。" },
+      qr:     { t: "二维码与绿色屏", b: "Windows 10 周年更新（内部版本 14316）加入了二维码，方便用手机扫码查询错误。从 2016 年起，预览版使用绿色屏（#246F24），测试崩溃不会与正式版混淆。" },
+      device: { t: "PC 变成设备", b: "Windows 10 2004 版悄悄把所有“你的电脑遇到问题”改成了“你的设备遇到问题”。" },
+      eleven: { t: "Windows 11 试水黑色", b: "早期 Windows 11 内部版本曾使用黑色蓝屏，随后在内部版本 22000.348 改回深蓝色。这次试验预示了后来的方向。" },
+      crowd:  { t: "史上最大规模蓝屏", b: "2024 年 7 月 19 日，CrowdStrike 的一个错误通道文件（csagent.sys）导致全球约 850 万台 Windows 设备崩溃——航空公司、医院、银行无一幸免，屏幕上都是 PAGE_FAULT_IN_NONPAGED_AREA。这次事故促使微软重新思考这块屏幕。", legend: "crowdstrike" },
+      black:  { t: "告别蓝色，你好黑色", b: "2025 年 6 月 26 日，微软确认 Windows 11 24H2 的蓝屏改为黑色：没有哭脸、没有二维码，文字居中，底部显示停止代码和括号中的十六进制错误码——这块为“更快恢复”设计的“意外重启”屏幕将随快速系统恢复功能一起推出。", legend: "black2025" },
+      comdex: { t: "COMDEX，舞台直播", b: "1998 年 4 月 20 日：在 COMDEX 的 Windows 98 即插即用演示中，扫描仪驱动程序“配合地”当场抛出致命异常 0E。比尔·盖茨：“这就是我们还没发布 Windows 98 的原因。”", legend: "comdex" },
+      concon: { t: "c:\\con\\con", b: "在 Windows 95/98 中，“con”是保留设备名——但资源管理器却把 c:\\con\\con 当作路径接受并触发致命异常崩溃。这是经典的恶作剧，2000 年 3 月的 MS00-017 补丁修复了它。", legend: "concon" }
+    }
+  };
+
+  var JA = {
+    ui: {
+      appTitle: "BSOD スタジオ",
+      appTagline: "オリジナルのブルースクリーンを作って、画像として保存できます。",
+      tabEditor: "エディター", tabHistory: "歴史",
+      btnDownload: "PNG をダウンロード", btnCopy: "画像をコピー", btnRandomize: "ランダム生成", btnReset: "リセット",
+      btnShuffle: "ダンプを再生成", btnLoad: "エディターで読み込む",
+      toastCopied: "画像をクリップボードにコピーしました", toastCopyFail: "コピーできませんでした。ダウンロードをご利用ください",
+      secPreset: "時代プリセット", secColors: "色", secContent: "内容", secTypography: "タイポグラフィ", secOutput: "出力",
+      lblBg: "背景", lblFg: "文字", lblFace: "顔文字", lblHeadline: "見出し", lblPercent: "進捗",
+      lblShowPercent: "進捗行を表示", lblUrl: "リンク / QR 内容", lblShowForMore: "詳細行を表示",
+      lblInfoLine: "情報行", lblSupport: "サポート案内", lblShowSupport: "サポート案内を表示",
+      lblStopCode: "ストップコード", lblFailed: "障害モジュール", lblShowFailed: "障害モジュールを表示",
+      lblHex: "括弧内の16進エラーコード", lblBody: "画面テキスト",
+      lblBodyHint: "80 桁のテキスト。ストップコードを変えると再生成されます。", lblQr: "QR コード",
+      lblFont: "フォント", lblScale: "文字サイズ", lblAlign: "配置",
+      lblAlignLeft: "左揃え", lblAlignCenter: "中央",
+      lblResolution: "解像度", lblCustom: "カスタム", lblWidth: "幅", lblHeight: "高さ",
+      fontSegoe: "Segoe UI（公式）", fontConsolas: "Consolas（公式）",
+      res1080: "1920 × 1080 · フルHD", res1440: "2560 × 1440 · QHD", res4k: "3840 × 2160 · 4K",
+      res720: "1280 × 720 · HD", res43: "1024 × 768 · 4:3", res800: "800 × 600 · 4:3",
+      resPortrait: "1080 × 1920 · 縦型", resCustom: "カスタム",
+      presetNt: "Windows NT 3.x", presetWin9x: "Windows 95/98", presetXp: "Windows 2000/XP",
+      presetWin8: "Windows 8/8.1", presetWin10: "Windows 10", presetWin11: "Windows 11",
+      presetGsod: "Insider 緑", presetBlack: "黒（2025）", presetCustom: "自由編集",
+      hintClassic: "ヒント：クラシック画面は 80 桁のプレーンテキスト。自由に編集できます。",
+      historyKicker: "図鑑", historyTitle: "ブルースクリーン 40 年史",
+      historyIntro: "Windows 1.0 の文字化けした起動エラーから、2025 年の黒い「予期しない再起動」画面まで——ブルースクリーンの全歴史。プリセットはそのままエディターに読み込めます。",
+      factsTitle: "BSOD トリビア",
+      factColorsT: "一つの画面、多くの色",
+      factColorsB: "#0000A8 NT 3.1–4.0 · #000080 2000–7 · #1A67B3 8→10 (1511) · #0078D7 10 (1607)+ · #246F24 Insider 緑 · #000000 2025 から",
+      factBallmerT: "バルマーの直筆",
+      factBallmerB: "2014 年、古典的なメッセージをスティーブ・バルマー自身が書いたと Microsoft の幹部が明かしました。",
+      factCustomT: "かつてはカスタマイズ可能",
+      factCustomB: "Windows 3.1 / 95 / 98 は SYSTEM.INI で BSOD の色を変更できました。NT 系は以後永久に固定です。",
+      factCrowdT: "850 万の画面",
+      factCrowdB: "2024 年 7 月 19 日の CrowdStrike 事故は、単一の原因として史上最大の BSOD と考えられています。",
+    gifFail: "GIF をエンコードできませんでした。解像度を下げてください。",
+    lblFormat: "フォーマット",
+    qrLinkHint: "リンクとしてエンコードされます。https:// がない場合は自動で追加されます。",
+      btnGif: "GIF をダウンロード",
+    gifBusy: "エンコード中…",
+      lblAnim: "アニメーション",
+      animOff: "静止画",
+      animPercent: "パーセント進行",
+      animCursor: "カーソル点滅",
+      lblSpeed: "フレーム遅延",
+      lblSteps: "フレーム数",
+      sourcesTitle: "出典",
+      sourcesNote: "Wikipedia — Blue screen of death · CNBC (2025-06-26) · Microsoft Windows Insider Blog (2025-03-28) · The Verge · Microsoft Learn。"
+    },
+    bsod: {
+      bHeadPc: "PC に問題が発生したため、再起動する必要があります。エラー情報を収集してから、再起動を行います。",
+      bHeadDev: "デバイスに問題が発生したため、再起動する必要があります。エラー情報を収集してから、再起動を行います。",
+      bPercent: "{n}% 完了",
+      bForMore: "この問題と考えられる解決方法の詳細については、{url} をご覧ください",
+      bSupport: "サポート担当者に問い合わせる場合は、次の情報を伝えてください:",
+      bStopLabel: "ストップコード:",
+      bFailedLabel: "失敗した内容:",
+      bWin8Info: "詳細を知りたい場合は、後でこのエラーをオンラインで検索できます: {code}",
+      bBlackHead: "デバイスに問題が発生したため、再起動する必要があります。",
+      bXpIntro: "問題が検出されたため、コンピューターへの損害を防ぐために Windows はシャットダウンされました。",
+      bXpFirst: "このストップエラー画面が初めて表示される場合は、コンピューターを再起動してください。この画面が再び表示される場合は、次の手順に従ってください:",
+      bXpSteps1: "新しいハードウェアまたはソフトウェアが正しくインストールされているか確認してください。新規インストールの場合は、必要な Windows 更新プログラムについてハードウェアまたはソフトウェアの製造元にお問い合わせください。",
+      bXpSteps2: "問題が解決しない場合は、新しくインストールしたハードウェアまたはソフトウェアを無効または削除してください。キャッシングやシャドウイングなどの BIOS メモリ オプションを無効にしてください。セーフ モードを使用してコンポーネントを削除または無効にする必要がある場合は、コンピューターを再起動し、F8 キーを押して [詳細ブート オプション] を選択し、[セーフ モード] を選択してください。",
+      bXpTech: "技術情報:",
+      b9xFatal: "致命的な例外 0E が 0028:C0011E36 の VXD VMM(01) +\n00010E36 で発生しました。現在のアプリケーションを終了します。",
+      b9xKeys: "*  現在のアプリケーションを終了するには、どれかキーを押してください。\n*  コンピューターを再起動するには、CTRL+ALT+DEL をもう一度押してください。\n   アプリケーションの未保存の情報はすべて失われます。\n\nどれかキーを押してください _",
+      bNtBottom: "再起動して、コントロール パネルで回復オプションを設定してください。問題が解決しない場合は、システム管理者またはテクニカル サポート グループにお問い合わせください。"
+    },
+    hist: {
+      pre:    { t: "ブルースクリーン以前", b: "Windows 1.0 / 2.0 は起動時に「Incorrect DOS version」などの青いメッセージ（製品版では文字化け）を表示していましたが、本当のクラッシュではフリーズするか DOS に落ちるだけでした。" },
+      win31:  { t: "Windows 3.1 が青に", b: "Windows 3.0 はテキスト モードでエラーを表示。3.1 で背景が青に。しかも 3.1/95/98 は SYSTEM.INI で色を変更できました——カスタマイズ可能な BSOD はこれが唯一です。" },
+      nt:     { t: "NT 3.1：初の本物の BSOD", b: "Windows NT 3.1 が *** STOP: 形式を導入し、「ストップエラー」の名が生まれました。レジスタとメモリ ダンプのみ、やさしい言葉はなし——詳しく知るにはデバッガーが必要でした。" },
+      nine:   { t: "致命的例外 0E", b: "9x 時代は 80×25 のテキスト画面。1998 年の COMDEX でビル・ゲイツが Windows 98 のデモ中に BSOD を披露したことや、c:\\con\\con と入力すると友達の PC が落ちたいたずら（2000 年 3 月に修正）が有名です。" },
+      xp:     { t: "安心の紺色スクリーン", b: "Windows 2000/XP/Vista/7 は「問題が検出されました…」と丁寧な対処手順を表示し、下部に技術情報。2014 年、この文章をスティーブ・バルマー自身が書いたと明かされました。" },
+      eight:  { t: "Windows 8 の悲しい顔", b: "Windows 8 は文字の壁を Segoe UI、巨大な「:(」、平易な一文、パーセント表示に置き換えました。色はセルリアン #1A67B3。" },
+      qr:     { t: "QR コードと緑の画面", b: "Windows 10 Anniversary Update（ビルド 14316）で QR コードが追加され、スマホでエラーを調べられるように。2016 年からは Insider 向けに緑（#246F24）の画面も。" },
+      device: { t: "PC がデバイスに", b: "Windows 10 version 2004 で「Your PC が…」が「Your device が…」に静かに変わりました。" },
+      eleven: { t: "Windows 11、黒を試す", b: "初期の Windows 11 ビルドは黒い BSOD を採用しましたが、ビルド 22000.348 で濃い青に戻しました。この実験が後の変更を予感させました。" },
+      crowd:  { t: "史上最大の BSOD", b: "2024 年 7 月 19 日、CrowdStrike の不具合のあるチャネル ファイル（csagent.sys）が世界中の約 850 万台の Windows をクラッシュさせました——航空、病院、銀行が軒並み PAGE_FAULT_IN_NONPAGED_AREA に。この事故が Microsoft に画面の見直しを促しました。", legend: "crowdstrike" },
+      black:  { t: "さよなら青、こんにちは黒", b: "2025 年 6 月 26 日、Microsoft は Windows 11 24H2 で BSOD を黒くすると発表。悲しい顔も QR コードもなくなり、中央寄せのテキストと下部にストップコード＋16 進コード。「Quick Machine Recovery」とともに展開される、より速い回復のための「予期しない再起動」画面です。", legend: "black2025" },
+      comdex: { t: "COMDEX、ステージで生放映", b: "1998 年 4 月 20 日、COMDEX の Windows 98 プラグ アンド プレイ デモ中、スキャナ ドライバが「引っ込まず」致命的例外 0E を発生。ビル・ゲイツ：「だから Windows 98 はまだ出荷しないんです。」", legend: "comdex" },
+      concon: { t: "c:\\con\\con", b: "Windows 95/98 では「con」は予約されたデバイス名——なのにシェルは c:\\con\\con をパスとして受け入れ、致命的例外でクラッシュ。楽しまれたいたずらで、2000 年 3 月の修正プログラム MS00-017 で修正されました。", legend: "concon" }
+    }
+  };
+
+  var ES = {
+    ui: {
+      appTitle: "BSOD Studio",
+      appTagline: "Diseña tu propia pantalla azul de la muerte y guárdala como imagen.",
+      tabEditor: "Editor", tabHistory: "Historia",
+      btnDownload: "Descargar PNG", btnCopy: "Copiar imagen", btnRandomize: "Aleatorio", btnReset: "Restablecer",
+      btnShuffle: "Regenerar volcado", btnLoad: "Cargar en el editor",
+      toastCopied: "Imagen copiada al portapapeles", toastCopyFail: "No se pudo copiar; usa Descargar",
+      secPreset: "Época", secColors: "Colores", secContent: "Contenido", secTypography: "Tipografía", secOutput: "Salida",
+      lblBg: "Fondo", lblFg: "Texto", lblFace: "Carita", lblHeadline: "Titular", lblPercent: "Progreso",
+      lblShowPercent: "Mostrar línea de progreso", lblUrl: "Enlace / contenido del QR", lblShowForMore: "Mostrar línea de información",
+      lblInfoLine: "Línea de información", lblSupport: "Nota de soporte", lblShowSupport: "Mostrar nota de soporte",
+      lblStopCode: "Código de detención", lblFailed: "Módulo con error", lblShowFailed: "Mostrar módulo con error",
+      lblHex: "Código hexadecimal entre paréntesis", lblBody: "Texto de pantalla",
+      lblBodyHint: "Texto plano de 80 columnas. Cambiar el código lo regenera.", lblQr: "Código QR",
+      lblFont: "Fuente", lblScale: "Tamaño del texto", lblAlign: "Alineación",
+      lblAlignLeft: "Izquierda", lblAlignCenter: "Centrado",
+      lblResolution: "Resolución", lblCustom: "Personalizada", lblWidth: "Ancho", lblHeight: "Alto",
+      fontSegoe: "Segoe UI (auténtica)", fontConsolas: "Consolas (auténtica)",
+      res1080: "1920 × 1080 · Full HD", res1440: "2560 × 1440 · QHD", res4k: "3840 × 2160 · 4K",
+      res720: "1280 × 720 · HD", res43: "1024 × 768 · 4:3", res800: "800 × 600 · 4:3",
+      resPortrait: "1080 × 1920 · Vertical", resCustom: "Personalizada",
+      presetNt: "Windows NT 3.x", presetWin9x: "Windows 95/98", presetXp: "Windows 2000/XP",
+      presetWin8: "Windows 8/8.1", presetWin10: "Windows 10", presetWin11: "Windows 11",
+      presetGsod: "Verde Insider", presetBlack: "Negra (2025)", presetCustom: "Edición libre",
+      hintClassic: "Consejo: las pantallas clásicas son texto plano de 80 columnas; edítalas libremente.",
+      historyKicker: "Guía", historyTitle: "40 años de pantallazos azules",
+      historyIntro: "Desde los errores de arranque en mojibake de Windows 1.0 hasta la pantalla negra de «reinicio inesperado» de 2025: toda la historia, con presets que puedes cargar directamente en el editor.",
+      factsTitle: "Curiosidades que valen un cuelgue",
+      factColorsT: "Una pantalla, muchos colores",
+      factColorsB: "#0000A8 NT 3.1–4.0 · #000080 2000–7 · #1A67B3 8→10 (1511) · #0078D7 10 (1607)+ · #246F24 verde Insider · #000000 desde 2025",
+      factBallmerT: "Escrita por Ballmer",
+      factBallmerB: "Directivos de Microsoft revelaron en 2014 que Steve Ballmer escribió personalmente el mensaje clásico.",
+      factCustomT: "Personalizable… una vez",
+      factCustomB: "Windows 3.1, 95 y 98 permitían cambiar los colores de la BSOD vía SYSTEM.INI. La familia NT los fijó para siempre.",
+      factCrowdT: "8,5 millones de pantallas",
+      factCrowdB: "El incidente de CrowdStrike del 19 de julio de 2024 se considera la mayor causa única de BSOD de la historia.",
+    gifFail: "No se pudo codificar el GIF; prueba una resolución menor.",
+    lblFormat: "Formato",
+    qrLinkHint: "Se codifica como enlace: se añade https:// automáticamente si falta.",
+      btnGif: "Descargar GIF",
+    gifBusy: "Codificando…",
+      lblAnim: "Animación",
+      animOff: "Estática",
+      animPercent: "Progreso creciente",
+      animCursor: "Cursor parpadeante",
+      lblSpeed: "Retardo de fotograma",
+      lblSteps: "Fotogramas",
+      sourcesTitle: "Fuentes",
+      sourcesNote: "Wikipedia — Blue screen of death · CNBC (26-06-2025) · Microsoft Windows Insider Blog (28-03-2025) · The Verge · Microsoft Learn."
+    },
+    bsod: {
+      bHeadPc: "Tu PC ha tenido un problema y debe reiniciarse. Solo estamos recopilando información del error y después lo reiniciaremos.",
+      bHeadDev: "Tu dispositivo ha tenido un problema y debe reiniciarse. Solo estamos recopilando información del error y después lo reiniciaremos.",
+      bPercent: "{n}% completado",
+      bForMore: "Para más información sobre este problema y posibles soluciones, visita {url}",
+      bSupport: "Si llamas al personal de soporte, dales esta información:",
+      bStopLabel: "Código de detención:",
+      bFailedLabel: "Qué ha fallado:",
+      bWin8Info: "Si quieres saber más, puedes buscar este error en línea más tarde: {code}",
+      bBlackHead: "Tu dispositivo ha tenido un problema y debe reiniciarse.",
+      bXpIntro: "Se ha detectado un problema y Windows se ha cerrado para evitar daños en el equipo.",
+      bXpFirst: "Si es la primera vez que ves esta pantalla de error de detención, reinicia el equipo. Si esta pantalla vuelve a aparecer, sigue estos pasos:",
+      bXpSteps1: "Comprueba que el nuevo hardware o software esté correctamente instalado. Si se trata de una instalación nueva, pide al fabricante las actualizaciones de Windows que puedas necesitar.",
+      bXpSteps2: "Si los problemas continúan, deshabilita o quita cualquier hardware o software recién instalado. Deshabilita las opciones de memoria de la BIOS, como la caché o la sombra. Si necesitas usar el modo seguro para quitar o deshabilitar componentes, reinicia el equipo, pulsa F8 para seleccionar Opciones avanzadas de inicio y selecciona Modo seguro.",
+      bXpTech: "Información técnica:",
+      b9xFatal: "Se ha producido una excepción fatal 0E en 0028:C0011E36 en VXD VMM(01) +\n00010E36. La aplicación actual finalizará.",
+      b9xKeys: "*  Pulsa una tecla para finalizar la aplicación actual.\n*  Vuelve a pulsar CTRL+ALT+SUPR para reiniciar el equipo. Perderás\n   toda la información no guardada de las aplicaciones.\n\nPulsa una tecla para continuar _",
+      bNtBottom: "Reinicie y configure las opciones de recuperación en el Panel de control. Si el problema persiste, contacte con el administrador del sistema o con el grupo de soporte técnico."
+    },
+    hist: {
+      pre:    { t: "Antes de la pantalla azul", b: "Windows 1.0 y 2.0 mostraban mensajes azules de arranque como «Incorrect DOS version» (en mojibake en las versiones finales), pero los fallos reales simplemente congelaban el equipo o devolvían al DOS." },
+      win31:  { t: "Windows 3.1 se pone azul", b: "Windows 3.0 mostraba errores en modo texto; 3.1 cambió el fondo a azul. Y algo único: 3.1/95/98 permitían cambiar el color desde SYSTEM.INI — las únicas BSOD personalizables de la historia." },
+      nt:     { t: "NT 3.1: la primera BSOD de verdad", b: "Windows NT 3.1 introdujo el formato *** STOP: — nacía el «error de detención». Registros y volcados de memoria sin una sola palabra amable: hacía falta un depurador." },
+      nine:   { t: "Excepción fatal 0E", b: "La era 9x vivía en una pantalla de texto de 80×25. Momentos famosos: el BSOD en vivo de Bill Gates con Windows 98 en COMDEX (abril de 1998) y el truco c:\\con\\con que fundía el PC de tus amigos (parcheado en marzo de 2000)." },
+      xp:     { t: "La consoladora pantalla azul marino", b: "Windows 2000/XP/Vista/7 empezaron a hablar claro: «Se ha detectado un problema…» con consejos paso a paso e Información técnica abajo. En 2014 Microsoft confirmó que el texto lo escribió Steve Ballmer." },
+      eight:  { t: "Windows 8 y la carita triste", b: "Windows 8 sustituyó el muro de texto por Segoe UI, un «:(» gigante, una frase sencilla y un porcentaje. Cerúleo #1A67B3." },
+      qr:     { t: "Códigos QR y pantalla verde", b: "La Anniversary Update de Windows 10 (compilación 14316) añadió un código QR para buscar el error con el móvil. Desde 2016, los Insider tienen su versión verde (#246F24)." },
+      device: { t: "El PC pasa a ser el dispositivo", b: "Windows 10 versión 2004 cambió silenciosamente cada «Tu PC ha tenido un problema» por «Tu dispositivo ha tenido un problema»." },
+      eleven: { t: "Windows 11 prueba el negro", b: "Las primeras compilaciones de Windows 11 estrenaron una BSOD negra, y luego volvieron al azul oscuro en la compilación 22000.348. El experimento anticipó lo que venía." },
+      crowd:  { t: "La mayor BSOD de la historia", b: "19 de julio de 2024: un archivo de CrowdStrike defectuoso (csagent.sys) tumbó unos 8,5 millones de equipos Windows —aerolíneas, hospitales, bancos—, todos con PAGE_FAULT_IN_NONPAGED_AREA. El apagón empujó a Microsoft a replantearse la pantalla.", legend: "crowdstrike" },
+      black:  { t: "Adiós azul, hola negro", b: "El 26 de junio de 2025 Microsoft confirmó que la BSOD se vuelve negra en Windows 11 24H2: sin carita, sin QR, texto centrado y el código de detención con código hexadecimal entre paréntesis abajo — una pantalla de «reinicio inesperado» diseñada para recuperaciones más rápidas junto a Quick Machine Recovery.", legend: "black2025" },
+      comdex: { t: "COMDEX, en directo", b: "20 de abril de 1998: durante la demo de Plug & Play de Windows 98 en COMDEX, el controlador del escáner se dejó ver con una excepción fatal 0E en vivo. Bill Gates: «Por eso todavía no enviamos Windows 98».", legend: "comdex" },
+      concon: { t: "c:\\con\\con", b: "En Windows 95/98, «con» era un nombre de dispositivo reservado — pero el explorador aceptaba c:\\con\\con como ruta y provocaba un cuelgue con excepción fatal. Una bromazo, corregida con el parche MS00-017 en marzo de 2000.", legend: "concon" }
+    }
+  };
+
+  var FR = {
+    ui: {
+      appTitle: "BSOD Studio",
+      appTagline: "Créez votre propre écran bleu de la mort, puis enregistrez-le en image.",
+      tabEditor: "Éditeur", tabHistory: "Histoire",
+      btnDownload: "Télécharger en PNG", btnCopy: "Copier l'image", btnRandomize: "Aléatoire", btnReset: "Réinitialiser",
+      btnShuffle: "Régénérer le dump", btnLoad: "Charger dans l'éditeur",
+      toastCopied: "Image copiée dans le presse-papiers", toastCopyFail: "Copie impossible — utilisez le téléchargement",
+      secPreset: "Époque", secColors: "Couleurs", secContent: "Contenu", secTypography: "Typographie", secOutput: "Export",
+      lblBg: "Arrière-plan", lblFg: "Texte", lblFace: "Triste smiley", lblHeadline: "Titre", lblPercent: "Progression",
+      lblShowPercent: "Afficher la ligne de progression", lblUrl: "Lien / contenu du QR", lblShowForMore: "Afficher la ligne d'info",
+      lblInfoLine: "Ligne d'info", lblSupport: "Note d'assistance", lblShowSupport: "Afficher la note d'assistance",
+      lblStopCode: "Code d'arrêt", lblFailed: "Module en cause", lblShowFailed: "Afficher le module en cause",
+      lblHex: "Code hexadécimal entre parenthèses", lblBody: "Texte de l'écran",
+      lblBodyHint: "Texte brut de 80 colonnes. Changer le code le regénère.", lblQr: "Code QR",
+      lblFont: "Police", lblScale: "Taille du texte", lblAlign: "Alignement",
+      lblAlignLeft: "Gauche", lblAlignCenter: "Centré",
+      lblResolution: "Résolution", lblCustom: "Personnalisée", lblWidth: "Largeur", lblHeight: "Hauteur",
+      fontSegoe: "Segoe UI (authentique)", fontConsolas: "Consolas (authentique)",
+      res1080: "1920 × 1080 · Full HD", res1440: "2560 × 1440 · QHD", res4k: "3840 × 2160 · 4K",
+      res720: "1280 × 720 · HD", res43: "1024 × 768 · 4:3", res800: "800 × 600 · 4:3",
+      resPortrait: "1080 × 1920 · Portrait", resCustom: "Personnalisée",
+      presetNt: "Windows NT 3.x", presetWin9x: "Windows 95/98", presetXp: "Windows 2000/XP",
+      presetWin8: "Windows 8/8.1", presetWin10: "Windows 10", presetWin11: "Windows 11",
+      presetGsod: "Vert Insider", presetBlack: "Noir (2025)", presetCustom: "Édition libre",
+      hintClassic: "Astuce : les écrans classiques sont du texte brut de 80 colonnes — modifiez-les librement.",
+      historyKicker: "Guide", historyTitle: "40 ans d'écran bleu",
+      historyIntro: "Des erreurs de démarrage en mojibake de Windows 1.0 à l'écran noir de « redémarrage inattendu » de 2025 — toute l'histoire, avec des préréglages chargeables directement dans l'éditeur.",
+      factsTitle: "Le saviez-vous ?",
+      factColorsT: "Un écran, plein de couleurs",
+      factColorsB: "#0000A8 NT 3.1–4.0 · #000080 2000–7 · #1A67B3 8→10 (1511) · #0078D7 10 (1607)+ · #246F24 vert Insider · #000000 depuis 2025",
+      factBallmerT: "Écrit par Ballmer",
+      factBallmerB: "Des cadres de Microsoft ont révélé en 2014 que Steve Ballmer avait personnellement rédigé le message classique.",
+      factCustomT: "Personnalisable… à l'époque",
+      factCustomB: "Windows 3.1, 95 et 98 savaient changer les couleurs de la BSOD via SYSTEM.INI. La famille NT les a figées à jamais.",
+      factCrowdT: "8,5 millions d'écrans",
+      factCrowdB: "L'incident CrowdStrike du 19 juillet 2024 reste la plus grande cause unique de BSOD jamais recensée.",
+    gifFail: "Impossible d\u2019encoder le GIF — essayez une résolution inférieure.",
+    lblFormat: "Format",
+    qrLinkHint: "Encodé comme un lien — https:// est ajouté automatiquement s\u2019il manque.",
+      btnGif: "Télécharger en GIF",
+    gifBusy: "Encodage…",
+      lblAnim: "Animation",
+      animOff: "Statique",
+      animPercent: "Progression en pourcentage",
+      animCursor: "Curseur clignotant",
+      lblSpeed: "Délai d'image",
+      lblSteps: "Images",
+      sourcesTitle: "Sources",
+      sourcesNote: "Wikipedia — Blue screen of death · CNBC (26/06/2025) · Microsoft Windows Insider Blog (28/03/2025) · The Verge · Microsoft Learn."
+    },
+    bsod: {
+      bHeadPc: "Votre PC a rencontré un problème et doit redémarrer. Nous collectons simplement des informations sur l'erreur, puis nous le redémarrerons.",
+      bHeadDev: "Votre appareil a rencontré un problème et doit redémarrer. Nous collectons simplement des informations sur l'erreur, puis nous le redémarrerons.",
+      bPercent: "{n}% effectués",
+      bForMore: "Pour plus d'informations sur ce problème et les solutions possibles, rendez-vous sur {url}",
+      bSupport: "Si vous contactez une personne en charge du support, communiquez-lui les informations suivantes :",
+      bStopLabel: "Code d'arrêt :",
+      bFailedLabel: "Élément défaillant :",
+      bWin8Info: "Si vous souhaitez en savoir plus, vous pourrez rechercher cette erreur en ligne plus tard : {code}",
+      bBlackHead: "Votre appareil a rencontré un problème et doit redémarrer.",
+      bXpIntro: "Un problème a été détecté et Windows a été arrêté pour éviter tout dommage à votre ordinateur.",
+      bXpFirst: "Si c'est la première fois que vous voyez cet écran d'erreur d'arrêt, redémarrez votre ordinateur. Si cet écran réapparaît, suivez les étapes suivantes :",
+      bXpSteps1: "Vérifiez que les nouveaux matériels ou logiciels sont correctement installés. S'il s'agit d'une nouvelle installation, adressez-vous au fabricant de votre matériel ou logiciel pour obtenir les mises à jour Windows dont vous avez besoin.",
+      bXpSteps2: "Si les problèmes persistent, désactivez ou supprimez tout matériel ou logiciel récemment installé. Désactivez les options de mémoire du BIOS telles que la mise en cache ou l'ombrage. Si vous devez utiliser le mode sans échec pour supprimer ou désactiver des composants, redémarrez votre ordinateur, appuyez sur F8 pour sélectionner les Options de démarrage avancées, puis sélectionnez le Mode sans échec.",
+      bXpTech: "Informations techniques :",
+      b9xFatal: "Une exception fatale 0E s'est produite à 0028:C0011E36 dans VXD VMM(01) +\n00010E36. L'application en cours va être interrompue.",
+      b9xKeys: "*  Appuyez sur une touche pour interrompre l'application en cours.\n*  Appuyez de nouveau sur CTRL+ALT+SUPPR pour redémarrer votre ordinateur. Vous\n   perdrez toutes les informations non enregistrées dans les applications.\n\nAppuyez sur une touche pour continuer _",
+      bNtBottom: "Redémarrez et définissez les options de récupération dans le Panneau de configuration. Si le problème persiste, contactez votre administrateur système ou votre groupe de support technique."
+    },
+    hist: {
+      pre:    { t: "Avant l'écran bleu", b: "Windows 1.0 et 2.0 affichaient des messages de démarrage bleus comme « Incorrect DOS version » (en mojibake dans les versions finales), mais un vrai plantage gelait la machine ou replongeait sous DOS." },
+      win31:  { t: "Windows 3.1 passe au bleu", b: "Windows 3.0 affichait ses erreurs en mode texte ; la 3.1 est passée au fond bleu. Fait unique : 3.1/95/98 permettaient d'en changer la couleur via SYSTEM.INI — les seules BSOD personnalisables de l'histoire." },
+      nt:     { t: "NT 3.1 : la première vraie BSOD", b: "Windows NT 3.1 introduit le format *** STOP : le « stop error » était né. Registres et vidages mémoire, aucun mot gentil : il fallait un débogueur pour comprendre." },
+      nine:   { t: "Exception fatale 0E", b: "L'ère 9x vivait sur un écran texte 80×25. Moments cultes : le BSOD en direct de Bill Gates sous Windows 98 au COMDEX (avril 1998) et l'astuce c:\\con\\con qui faisait planter le PC des copains (corrigée en mars 2000)." },
+      xp:     { t: "L'écran bleu marine qui rassure", b: "Windows 2000/XP/Vista/7 parlent enfin humain : « Un problème a été détecté… », des conseils pas à pas et les Informations techniques en bas. En 2014, Microsoft a confirmé que le texte était de Steve Ballmer." },
+      eight:  { t: "Windows 8 et son smiley triste", b: "Windows 8 remplace le mur de texte par Segoe UI, un « :( » géant, une phrase simple et un pourcentage. Bleu céruléen #1A67B3." },
+      qr:     { t: "QR codes et écran vert", b: "La mise à jour anniversaire de Windows 10 (build 14316) a ajouté un QR code pour chercher l'erreur depuis son téléphone. Depuis 2016, les Insider ont leur version verte (#246F24)." },
+      device: { t: "Le PC devient l'appareil", b: "Windows 10 version 2004 a discrètement remplacé « Votre PC a rencontré un problème » par « Votre appareil a rencontré un problème »." },
+      eleven: { t: "Windows 11 essaie le noir", b: "Les premières builds de Windows 11 ont arboré une BSOD noire, puis sont revenues au bleu foncé avec la build 22000.348. L'expérience annonçait la suite." },
+      crowd:  { t: "La plus grande BSOD de l'histoire", b: "19 juillet 2024 : un fichier CrowdStrike défectueux (csagent.sys) a fait planter environ 8,5 millions de PC Windows — compagnies aériennes, hôpitaux, banques — tous en PAGE_FAULT_IN_NONPAGED_AREA. Ce black-out a poussé Microsoft à repenser l'écran.", legend: "crowdstrike" },
+      black:  { t: "Adieu le bleu, bonjour le noir", b: "Le 26 juin 2025, Microsoft confirme que la BSOD devient noire dans Windows 11 24H2 : fini le smiley et le QR code, texte centré, code d'arrêt et code hexadécimal entre parenthèses en bas — un écran de « redémarrage inattendu » pensé pour des récupérations plus rapides, aux côtés de Quick Machine Recovery.", legend: "black2025" },
+      comdex: { t: "COMDEX, en direct", b: "20 avril 1998 : pendant la démo Plug & Play de Windows 98 au COMDEX, le pilote du scanner offre une exception fatale 0E en direct. Bill Gates : « C'est pourquoi nous ne livrons pas encore Windows 98. »", legend: "comdex" },
+      concon: { t: "c:\\con\\con", b: "Dans Windows 95/98, « con » est un nom de périphérique réservé — mais l'explorateur acceptait c:\\con\\con comme chemin et faisait planter la machine avec une exception fatale. Un classique du canular, corrigé par le correctif MS00-017 en mars 2000.", legend: "concon" }
+    }
+  };
+
+  var DE = {
+    ui: {
+      appTitle: "BSOD Studio",
+      appTagline: "Gestalte deinen eigenen Blue Screen of Death – und speichere ihn als Bild.",
+      tabEditor: "Editor", tabHistory: "Geschichte",
+      btnDownload: "PNG herunterladen", btnCopy: "Bild kopieren", btnRandomize: "Zufällig", btnReset: "Zurücksetzen",
+      btnShuffle: "Dump neu würfeln", btnLoad: "Im Editor laden",
+      toastCopied: "Bild in die Zwischenablage kopiert", toastCopyFail: "Kopieren fehlgeschlagen – nutze Download",
+      secPreset: "Epoche", secColors: "Farben", secContent: "Inhalt", secTypography: "Typografie", secOutput: "Ausgabe",
+      lblBg: "Hintergrund", lblFg: "Text", lblFace: "Smiley", lblHeadline: "Überschrift", lblPercent: "Fortschritt",
+      lblShowPercent: "Fortschrittszeile zeigen", lblUrl: "Link / QR-Inhalt", lblShowForMore: "Infozeile zeigen",
+      lblInfoLine: "Infozeile", lblSupport: "Support-Hinweis", lblShowSupport: "Support-Hinweis zeigen",
+      lblStopCode: "Stoppcode", lblFailed: "Fehlerhaftes Modul", lblShowFailed: "Fehlerhaftes Modul zeigen",
+      lblHex: "Hex-Code in Klammern", lblBody: "Bildschirmtext",
+      lblBodyHint: "80-Zeichen-Text. Stoppcode ändern regeneriert ihn.", lblQr: "QR-Code",
+      lblFont: "Schrift", lblScale: "Textgröße", lblAlign: "Ausrichtung",
+      lblAlignLeft: "Links", lblAlignCenter: "Zentriert",
+      lblResolution: "Auflösung", lblCustom: "Benutzerdefiniert", lblWidth: "Breite", lblHeight: "Höhe",
+      fontSegoe: "Segoe UI (authentisch)", fontConsolas: "Consolas (authentisch)",
+      res1080: "1920 × 1080 · Full HD", res1440: "2560 × 1440 · QHD", res4k: "3840 × 2160 · 4K",
+      res720: "1280 × 720 · HD", res43: "1024 × 768 · 4:3", res800: "800 × 600 · 4:3",
+      resPortrait: "1080 × 1920 · Hochformat", resCustom: "Benutzerdefiniert",
+      presetNt: "Windows NT 3.x", presetWin9x: "Windows 95/98", presetXp: "Windows 2000/XP",
+      presetWin8: "Windows 8/8.1", presetWin10: "Windows 10", presetWin11: "Windows 11",
+      presetGsod: "Insider-Grün", presetBlack: "Schwarz (2025)", presetCustom: "Frei bearbeiten",
+      hintClassic: "Tipp: Klassische Bildschirme sind reiner 80-Spalten-Text — frei editierbar.",
+      historyKicker: "Wegweiser", historyTitle: "40 Jahre Blue Screen",
+      historyIntro: "Von den Mojibake-Bootfehlern in Windows 1.0 bis zum schwarzen „unerwarteten Neustart“-Bildschirm 2025 — die ganze Geschichte, mit Voreinstellungen, die sich direkt in den Editor laden lassen.",
+      factsTitle: "Trivia",
+      factColorsT: "Ein Bildschirm, viele Farben",
+      factColorsB: "#0000A8 NT 3.1–4.0 · #000080 2000–7 · #1A67B3 8→10 (1511) · #0078D7 10 (1607)+ · #246F24 Insider-Grün · #000000 seit 2025",
+      factBallmerT: "Von Ballmer persönlich",
+      factBallmerB: "Microsoft-Manager verrieten 2014, dass Steve Ballmer den klassischen Text selbst verfasst hat.",
+      factCustomT: "Einst konfigurierbar",
+      factCustomB: "Windows 3.1, 95 und 98 konnten die BSOD-Farben per SYSTEM.INI ändern. Die NT-Familie nagelte sie für immer fest.",
+      factCrowdT: "8,5 Millionen Bildschirme",
+      factCrowdB: "Der CrowdStrike-Vorfall vom 19. Juli 2024 gilt als größte einzelne BSOD-Ursache aller Zeiten.",
+    gifFail: "GIF konnte nicht kodiert werden – bitte kleinere Auflösung versuchen.",
+    lblFormat: "Format",
+    qrLinkHint: "Wird als Link kodiert — https:// wird bei Bedarf automatisch ergänzt.",
+      btnGif: "GIF herunterladen",
+    gifBusy: "Codiere…",
+      lblAnim: "Animation",
+      animOff: "Statisch",
+      animPercent: "Fortschritt hochzählen",
+      animCursor: "Cursor blinken",
+      lblSpeed: "Frame-Verzögerung",
+      lblSteps: "Frames",
+      sourcesTitle: "Quellen",
+      sourcesNote: "Wikipedia — Blue screen of death · CNBC (26.06.2025) · Microsoft Windows Insider Blog (28.03.2025) · The Verge · Microsoft Learn."
+    },
+    bsod: {
+      bHeadPc: "Auf dem PC ist ein Problem aufgetreten, und er muss neu gestartet werden. Wir sammeln nur einige Fehlerinformationen und starten ihn dann neu.",
+      bHeadDev: "Auf dem Gerät ist ein Problem aufgetreten, und es muss neu gestartet werden. Wir sammeln nur einige Fehlerinformationen und starten es dann neu.",
+      bPercent: "{n}% abgeschlossen",
+      bForMore: "Weitere Informationen zu diesem Problem und mögliche Lösungen finden Sie unter {url}",
+      bSupport: "Wenden Sie sich an eine Supportperson, und teilen Sie ihr folgende Infos mit:",
+      bStopLabel: "Stoppcode:",
+      bFailedLabel: "Fehlerursache:",
+      bWin8Info: "Wenn Sie weitere Informationen wünschen, können Sie später online nach diesem Fehler suchen: {code}",
+      bBlackHead: "Auf dem Gerät ist ein Problem aufgetreten, und es muss neu gestartet werden.",
+      bXpIntro: "Ein Problem wurde festgestellt, und Windows wurde heruntergefahren, um Schäden am Computer zu verhindern.",
+      bXpFirst: "Wenn Sie diesen Stoppfehler-Bildschirm zum ersten Mal sehen, starten Sie den Computer neu. Wird dieser Bildschirm erneut angezeigt, führen Sie die folgenden Schritte aus:",
+      bXpSteps1: "Stellen Sie sicher, dass neue Hardware oder Software ordnungsgemäß installiert ist. Handelt es sich um eine Neuinstallation, wenden Sie sich für erforderliche Windows-Updates an den Hersteller Ihrer Hardware oder Software.",
+      bXpSteps2: "Falls die Probleme weiterhin bestehen, deaktivieren oder entfernen Sie kürzlich installierte Hardware oder Software. Deaktivieren Sie BIOS-Speicheroptionen wie Zwischenspeichern oder Shadowing. Falls Sie den abgesicherten Modus zum Entfernen oder Deaktivieren von Komponenten benötigen, starten Sie den Computer neu, drücken Sie F8, um die erweiterten Startoptionen auszuwählen, und wählen Sie den abgesicherten Modus.",
+      bXpTech: "Technische Informationen:",
+      b9xFatal: "Ein schwerwiegender Ausnahmefehler 0E ist bei 0028:C0011E36 in VXD VMM(01) +\n00010E36 aufgetreten. Die aktuelle Anwendung wird beendet.",
+      b9xKeys: "*  Drücken Sie eine beliebige Taste, um die aktuelle Anwendung zu beenden.\n*  Drücken Sie STRG+ALT+ENTF erneut, um den Computer neu zu starten. Dabei gehen\n   alle nicht gespeicherten Informationen verloren.\n\nBeliebige Taste zum Fortsetzen _",
+      bNtBottom: "Starten Sie neu und legen Sie die Wiederherstellungsoptionen in der Systemsteuerung fest. Besteht das Problem fort, wenden Sie sich an Ihren Systemadministrator oder an die technische Supportgruppe."
+    },
+    hist: {
+      pre:    { t: "Vor dem Blue Screen", b: "Windows 1.0 und 2.0 zeigten blaue Boot-Meldungen wie „Incorrect DOS version“ (in Endversionen als Mojibake), doch echte Abstürze froren den Rechner nur ein oder endeten unter DOS." },
+      win31:  { t: "Windows 3.1 wird blau", b: "Windows 3.0 zeigte Fehler im Textmodus; 3.1 färbte den Hintergrund blau. Und als Einzige: 3.1/95/98 durften per SYSTEM.INI umgefärbt werden — die einzigen konfigurierbaren BSODs aller Zeiten." },
+      nt:     { t: "NT 3.1: der erste echte BSOD", b: "Windows NT 3.1 führte das *** STOP:-Format ein — geboren war der „Stop-Fehler“. Register und Speicherabbilder, keine freundlichen Worte: Ohne Debugger ging nichts." },
+      nine:   { t: "Schwerwiegender Ausnahmefehler 0E", b: "Die 9x-Ära lebte auf einem 80×25-Textbildschirm. Kultmomente: Bill Gates' Live-BSOD mit Windows 98 auf der COMDEX (April 1998) und der c:\\con\\con-Trick, der den PC der Freunde abschoss (gepatcht im März 2000)." },
+      xp:     { t: "Der beruhigende Marineblaue", b: "Windows 2000/XP/Vista/7 sprechen Klartext: „Ein Problem wurde festgestellt …“ mit Schritt-für-Schritt-Ratschlägen und Technischen Informationen darunter. 2014 bestätigte Microsoft, dass Steve Ballmer den Text selbst schrieb." },
+      eight:  { t: "Windows 8 bekommt ein trauriges Gesicht", b: "Windows 8 ersetzte die Textwand durch Segoe UI, ein riesiges „:(“, einen einfachen Satz und eine Prozentanzeige. Cerulean #1A67B3." },
+      qr:     { t: "QR-Codes und der grüne Bildschirm", b: "Das Anniversary Update von Windows 10 (Build 14316) fügte einen QR-Code hinzu, um den Fehler am Handy nachzuschlagen. Seit 2016 bekommen Insider ihre grüne Version (#246F24)." },
+      device: { t: "Aus dem PC wird das Gerät", b: "Windows 10 Version 2004 tauschte still jedes „Auf Ihrem PC ist ein Problem aufgetreten“ gegen „Auf Ihrem Gerät …“." },
+      eleven: { t: "Windows 11 probiert Schwarz", b: "Frühe Windows-11-Builds zeigten einen schwarzen BSOD, kehrten aber mit Build 22000.348 zum Dunkelblau zurück. Das Experiment ahnte schon, was kam." },
+      crowd:  { t: "Der größte BSOD der Geschichte", b: "19. Juli 2024: Eine fehlerhafte CrowdStrike-Datei (csagent.sys) brachte rund 8,5 Millionen Windows-Geräte zum Absturz — Airlines, Krankenhäuser, Banken, alle mit PAGE_FAULT_IN_NONPAGED_AREA. Der Ausfall veranlasste Microsoft, den Bildschirm neu zu denken.", legend: "crowdstrike" },
+      black:  { t: "Tschüss Blau, hallo Schwarz", b: "Am 26. Juni 2025 bestätigte Microsoft: Der BSOD wird in Windows 11 24H2 schwarz — kein trauriges Gesicht, kein QR-Code, zentrierter Text, unten Stoppcode mit Hex-Code in Klammern. Ein „unerwarteter Neustart“-Bildschirm für schnellere Wiederherstellung, zusammen mit Quick Machine Recovery.", legend: "black2025" },
+      comdex: { t: "COMDEX, live auf der Bühne", b: "20. April 1998: Während der Plug-&-Play-Demo von Windows 98 auf der COMDEX meldet sich der Scanner-Treiber live mit einem schwerwiegender Ausnahmefehler 0E. Bill Gates: „Deshalb liefern wir Windows 98 noch nicht aus.“", legend: "comdex" },
+      concon: { t: "c:\\con\\con", b: "In Windows 95/98 ist „con“ ein reservierter Gerätename — doch die Shell nahm c:\\con\\con gerne als Pfad an und stürzte mit einem schwerwiegender Ausnahmefehler ab. Ein geliebter Streich, gefixt mit Patch MS00-017 im März 2000.", legend: "concon" }
+    }
+  };
+
+  var I18N = {
+    en: EN, zh: ZH, ja: JA, es: ES, fr: FR, de: DE
+  };
+
+  function interpolate(str, vars) {
+    if (!str) return "";
+    return str.replace(/\{(\w+)\}/g, function (m, k) {
+      return vars && k in vars ? vars[k] : m;
+    });
+  }
+
+  global.I18N = {
+    languages: [
+      { id: "en", label: "English" },
+      { id: "zh", label: "简体中文" },
+      { id: "ja", label: "日本語" },
+      { id: "es", label: "Español" },
+      { id: "fr", label: "Français" },
+      { id: "de", label: "Deutsch" }
+    ],
+    get: function (lang) { return I18N[lang] || I18N.en; },
+    t: function (lang, key, vars) {
+      var pack = I18N[lang] || I18N.en;
+      var val = (pack.ui && pack.ui[key] !== undefined) ? pack.ui[key] : EN_UI[key];
+      return interpolate(val, vars);
+    },
+    bsod: function (lang, key, vars) {
+      var pack = I18N[lang] || I18N.en;
+      var val = (pack.bsod && pack.bsod[key] !== undefined) ? pack.bsod[key] : EN_BSOD[key];
+      return interpolate(val, vars);
+    },
+    hist: function (lang, id) {
+      var pack = I18N[lang] || I18N.en;
+      var entry = (pack.hist && pack.hist[id]) || EN_HIST[id];
+      return entry;
+    },
+    stopMeaning: function (lang, code) {
+      var pack = I18N[lang] || I18N.en;
+      var m = pack.stopMeanings || EN.stopMeanings;
+      return m[code] || EN.stopMeanings[code] || "";
+    },
+    interpolate: interpolate
+  };
+})(typeof window !== "undefined" ? window : this);
+
+</script>
+<script>
+/* BSOD Studio — era presets, stop codes, legends, NT dump generator. */
+(function (global) {
+  'use strict';
+
+  var ERAS = {
+    nt: {
+      id: "nt", nameKey: "presetNt", year: "1993", layout: "classic", rows: 50,
+      bg: "#0000A8", fg: "#FFFFFF", font: "mono", align: "left",
+      showFace: false, showPercent: false, showQr: false,
+      showForMore: false, showSupport: false, showFailed: false,
+      winVariant: "dev"
+    },
+    win9x: {
+      id: "win9x", nameKey: "presetWin9x", year: "1995", layout: "classic", rows: 25,
+      bg: "#000080", fg: "#FFFFFF", font: "mono", align: "left",
+      showFace: false, showPercent: false, showQr: false,
+      showForMore: false, showSupport: false, showFailed: false,
+      winVariant: "dev"
+    },
+    xp: {
+      id: "xp", nameKey: "presetXp", year: "2001", layout: "classic", rows: 30,
+      bg: "#000080", fg: "#FFFFFF", font: "mono", align: "left",
+      showFace: false, showPercent: false, showQr: false,
+      showForMore: false, showSupport: false, showFailed: false,
+      winVariant: "dev"
+    },
+    win8: {
+      id: "win8", nameKey: "presetWin8", year: "2012", layout: "win8",
+      bg: "#1A67B3", fg: "#FFFFFF", font: "segoe", align: "left",
+      showFace: true, face: ":(", showPercent: true, inlinePercent: true,
+      showQr: false, showForMore: false, showInfoLine: true, showSupport: false, showFailed: false,
+      winVariant: "pc"
+    },
+    win10: {
+      id: "win10", nameKey: "presetWin10", year: "2016", layout: "modern",
+      bg: "#0078D7", fg: "#FFFFFF", font: "segoe", align: "left",
+      showFace: true, face: ":(", showPercent: true,
+      showQr: true, showForMore: true, showSupport: true, showFailed: false,
+      winVariant: "pc"
+    },
+    win11: {
+      id: "win11", nameKey: "presetWin11", year: "2021", layout: "modern",
+      bg: "#0078D7", fg: "#FFFFFF", font: "segoe", align: "left",
+      showFace: true, face: ":(", showPercent: true,
+      showQr: true, showForMore: true, showSupport: true, showFailed: true,
+      winVariant: "dev"
+    },
+    gsod: {
+      id: "gsod", nameKey: "presetGsod", year: "2016", layout: "modern",
+      bg: "#246F24", fg: "#FFFFFF", font: "segoe", align: "left",
+      showFace: true, face: ":(", showPercent: true,
+      showQr: true, showForMore: true, showSupport: true, showFailed: true,
+      winVariant: "dev"
+    },
+    black2025: {
+      id: "black2025", nameKey: "presetBlack", year: "2025", layout: "centered",
+      bg: "#000000", fg: "#FFFFFF", font: "segoe", align: "center",
+      showFace: false, face: ":(", showPercent: true,
+      showQr: false, showForMore: false, showSupport: false, showFailed: false, showHex: true,
+      winVariant: "dev"
+    }
+  };
+
+  var ERA_ORDER = ["nt", "win9x", "xp", "win8", "win10", "win11", "gsod", "black2025", "custom"];
+
+  var AUTHENTIC_COLORS = [
+    { c: "#0000A8", k: "NT 3.1–4.0" },
+    { c: "#000080", k: "2000–7" },
+    { c: "#1A67B3", k: "8/8.1" },
+    { c: "#0078D7", k: "10/11" },
+    { c: "#246F24", k: "GSOD" },
+    { c: "#000000", k: "2025" },
+    { c: "#FFFFFF", k: "✕" }
+  ];
+
+  /* full swatch palette: authentic + extras */
+  var BG_COLORS = AUTHENTIC_COLORS.concat([
+    { c: "#C42B1C", k: "red" },
+    { c: "#DA3B01", k: "orange" },
+    { c: "#FFB900", k: "amber" },
+    { c: "#498205", k: "lime" },
+    { c: "#107C10", k: "green" },
+    { c: "#038387", k: "teal" },
+    { c: "#0099BC", k: "cyan" },
+    { c: "#4F6BED", k: "indigo" },
+    { c: "#8764B8", k: "purple" },
+    { c: "#C239B3", k: "magenta" },
+    { c: "#69797E", k: "gray" },
+    { c: "#201F1E", k: "charcoal" },
+    { c: "#101010", k: "void" },
+    { c: "#F3F3F3", k: "paper" }
+  ]);
+
+  var FG_COLORS = [
+    { c: "#FFFFFF", k: "white" },
+    { c: "#D6D6D6", k: "silver" },
+    { c: "#9B9B9B", k: "gray" },
+    { c: "#141414", k: "black" },
+    { c: "#FFC83D", k: "amber" },
+    { c: "#6CCB5F", k: "terminal" },
+    { c: "#4CC2FF", k: "sky" },
+    { c: "#FF9AC1", k: "pink" }
+  ];
+
+  var STOP_CODES = [
+    "IRQL_NOT_LESS_OR_EQUAL", "PAGE_FAULT_IN_NONPAGED_AREA", "CRITICAL_PROCESS_DIED",
+    "SYSTEM_SERVICE_EXCEPTION", "KERNEL_SECURITY_CHECK_FAILURE", "DPC_WATCHDOG_VIOLATION",
+    "VIDEO_TDR_FAILURE", "UNEXPECTED_KERNEL_MODE_TRAP", "INACCESSIBLE_BOOT_DEVICE",
+    "SYSTEM_THREAD_EXCEPTION_NOT_HANDLED", "MEMORY_MANAGEMENT", "NTFS_FILE_SYSTEM",
+    "WHEA_UNCORRECTABLE_ERROR", "KMODE_EXCEPTION_NOT_HANDLED", "APC_INDEX_MISMATCH",
+    "IRQL_GT_ZERO_AT_SYSTEM_SERVICE", "CLOCK_WATCHDOG_TIMEOUT"
+  ];
+
+  var HEX_FOR = {
+    IRQL_NOT_LESS_OR_EQUAL: "0x0000000A",
+    PAGE_FAULT_IN_NONPAGED_AREA: "0x00000050",
+    CRITICAL_PROCESS_DIED: "0x000000EF",
+    SYSTEM_SERVICE_EXCEPTION: "0x0000003B",
+    KERNEL_SECURITY_CHECK_FAILURE: "0x00000139",
+    DPC_WATCHDOG_VIOLATION: "0x00000133",
+    VIDEO_TDR_FAILURE: "0x00000116",
+    UNEXPECTED_KERNEL_MODE_TRAP: "0x0000007F",
+    INACCESSIBLE_BOOT_DEVICE: "0x0000007B",
+    SYSTEM_THREAD_EXCEPTION_NOT_HANDLED: "0x0000007E",
+    MEMORY_MANAGEMENT: "0x0000001A",
+    NTFS_FILE_SYSTEM: "0x00000024",
+    WHEA_UNCORRECTABLE_ERROR: "0x00000124",
+    KMODE_EXCEPTION_NOT_HANDLED: "0x0000001E",
+    APC_INDEX_MISMATCH: "0x00000001",
+    IRQL_GT_ZERO_AT_SYSTEM_SERVICE: "0x4A",
+    CLOCK_WATCHDOG_TIMEOUT: "0x00000101"
+  };
+
+  var FAILED_MODULES = ["win32kfull.sys", "win32kbase.sys", "nvlddmkm.sys", "ntfs.sys", "tcpip.sys", "ntoskrnl.exe", "fltmgr.sys", "csagent.sys", "Wdf01000.sys", "dxgmms2.sys"];
+
+  /* ---------------- classic body templates ---------------- */
+
+  function pad(str, len) {
+    str = String(str);
+    while (str.length < len) str += " ";
+    return str;
+  }
+
+  function hexRand(rng, digits) {
+    var s = "";
+    for (var i = 0; i < digits; i++) s += "0123456789ABCDEF"[Math.floor(rng() * 16)];
+    return s;
+  }
+
+  function mulberry32(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  var NT_MODULES = ["ntoskrnl.exe", "hal.dll", "scsidisk.sys", "aic78xx.sys", "atapi.sys", "Floppy.sys", "Ntfs.sys", "Fastfat.sys", "Mup.sys", "tcpip.sys", "Aic78u2.sys", "Sermouse.sys", "i8042prt.sys", "Kbdclass.sys", "Msfs.sys", "Npfs.sys"];
+
+  function ntDump(seed, code, hex, bottom) {
+    var rng = mulberry32(seed || 1);
+    var lines = [];
+    lines.push("***  STOP: " + hex + " (0x" + hexRand(rng, 8) + ",0x" + hexRand(rng, 8) + ",0x" + hexRand(rng, 8) + ",0x" + hexRand(rng, 8) + ")");
+    lines.push(code);
+    lines.push("");
+    lines.push("p5-0000 irql:2  SYSVER 0xF" + hexRand(rng, 7));
+    lines.push("");
+    lines.push("Dll  Eszs DtStmp     Name");
+    var count = 6 + Math.floor(rng() * 4);
+    for (var i = 0; i < count; i++) {
+      var base = (0x80100000 + Math.floor(rng() * 0x1FF0000)) >>> 0;
+      var esz = hexRand(rng, 6);
+      var dt = Math.floor(rng() * 0xFFFFFFFF).toString(16).toUpperCase();
+      lines.push(pad(base.toString(16).toUpperCase(), 8) + " " + pad(esz, 6) + " " + pad(dt, 8) + " - " + NT_MODULES[Math.floor(rng() * NT_MODULES.length)]);
+    }
+    lines.push("");
+    lines.push("Address  word dump     Build 1381  Name");
+    for (var j = 0; j < 6; j++) {
+      var addr = (0xFCC00000 + Math.floor(rng() * 0x3FFFF0)) >>> 0;
+      var w1 = (0x80000000 + Math.floor(rng() * 0x7FFFFF00)) >>> 0;
+      var w2 = (0x80000000 + Math.floor(rng() * 0x7FFFFF00)) >>> 0;
+      var w3 = (0xFC000000 + Math.floor(rng() * 0x3FFF0000)) >>> 0;
+      var w4 = (0xFC000000 + Math.floor(rng() * 0x3FFF0000)) >>> 0;
+      lines.push(pad(addr.toString(16).toUpperCase(), 8) + " " + pad(w1.toString(16).toUpperCase(), 8) + " " + pad(w2.toString(16).toUpperCase(), 8) + " " + pad(w3.toString(16).toUpperCase(), 8) + " " + pad(w4.toString(16).toUpperCase(), 8) + " - " + NT_MODULES[Math.floor(rng() * NT_MODULES.length)]);
+    }
+    lines.push("");
+    lines.push("");
+    lines.push(bottom);
+    return lines.join("\n");
+  }
+
+  function classicBody(t, era, lang, code, opts) {
+    opts = opts || {};
+    var I = global.I18N;
+    var hex = global.Presets.HEX_FOR[code] || "0x00000050";
+    if (era === "nt") {
+      return ntDump(opts.seed || 42, code, hex, I.bsod(lang, "bNtBottom"));
+    }
+    if (era === "win9x") {
+      return I.bsod(lang, "b9xFatal", { code: "0E" }) + "\n\n" + I.bsod(lang, "b9xKeys");
+    }
+    /* xp */
+    var driver = opts.driver || "SPCMDCON.SYS";
+    var addr = "FBFE7617", base = "FBFE5000", stamp = "3d6dd67c";
+    return [
+      I.bsod(lang, "bXpIntro"),
+      "",
+      code,
+      "",
+      I.bsod(lang, "bXpFirst"),
+      "",
+      I.bsod(lang, "bXpSteps1"),
+      "",
+      I.bsod(lang, "bXpSteps2"),
+      "",
+      I.bsod(lang, "bXpTech"),
+      "",
+      "*** STOP: " + hex + " (0x" + hex.slice(2, 10) + ",0x00000002,0x00000000,0x" + addr + ")",
+      "",
+      "***  " + driver + " - Address " + addr + " base at " + base + ", DateStamp " + stamp
+    ].join("\n");
+  }
+
+  var LEGENDS = {
+    crowdstrike: { era: "win11", stopCode: "PAGE_FAULT_IN_NONPAGED_AREA", failed: "csagent.sys", percent: 0 },
+    comdex: { era: "win9x" },
+    concon: { era: "win9x", bodyOverride: "A fatal exception 0E has occurred at 0028:C0029B8B in VXD CON(01) +\n00000B8B. The current application will be terminated.\n\n*  Press any key to terminate the current application.\n*  Press CTRL+ALT+DEL again to restart your computer. You will\n   lose any unsaved information in all applications.\n\nPress any key to continue _" },
+    black2025: { era: "black2025" }
+  };
+
+  global.Presets = {
+    ERAS: ERAS,
+    ERA_ORDER: ERA_ORDER,
+    AUTHENTIC_COLORS: AUTHENTIC_COLORS,
+    BG_COLORS: BG_COLORS,
+    FG_COLORS: FG_COLORS,
+    STOP_CODES: STOP_CODES,
+    HEX_FOR: HEX_FOR,
+    FAILED_MODULES: FAILED_MODULES,
+    classicBody: classicBody,
+    ntDump: ntDump,
+    LEGENDS: LEGENDS
+  };
+})(typeof window !== "undefined" ? window : this);
+
+</script>
+<script>
+/* BSOD Studio — minimal animated GIF89a encoder, zero dependencies.
+   Global palette: exact-color histogram when ≤256 colors, otherwise median-cut
+   quantization over a sampled histogram. Pixel mapping with nearest-color cache.
+   API: GIF.encode({width, height, delays:[ms...], getFrame(i, rgba)}) → Uint8Array */
+(function (global) {
+  'use strict';
+
+  function ByteBuf() { this.b = []; }
+  ByteBuf.prototype.byte = function (v) { this.b.push(v & 255); };
+  ByteBuf.prototype.short = function (v) { this.b.push(v & 255, (v >> 8) & 255); };
+  ByteBuf.prototype.ascii = function (s) { for (var i = 0; i < s.length; i++) this.b.push(s.charCodeAt(i)); };
+  ByteBuf.prototype.toUint8 = function () { return new Uint8Array(this.b); };
+
+  /* ---------- LZW (variable code size, 12-bit max, GIF byte order = LSB first) ---------- */
+  function lzwCompress(minCodeSize, indices) {
+    var clear = 1 << minCodeSize;
+    var eoi = clear + 1;
+    var codeSize = minCodeSize + 1;
+    var dictSize = eoi + 1;
+    var dict = new Map();
+    var out = [];
+    var cur = 0, curBits = 0;
+    function emit(code) {
+      cur |= code << curBits;
+      curBits += codeSize;
+      while (curBits >= 8) { out.push(cur & 255); cur >>>= 8; curBits -= 8; }
+    }
+    emit(clear);
+    var prefix = indices[0];
+    for (var i = 1; i < indices.length; i++) {
+      var k = indices[i];
+      var key = (prefix << 8) | k;
+      var v = dict.get(key);
+      if (v !== undefined) { prefix = v; continue; }
+      emit(prefix);
+      if (dictSize < 4096) {
+        dict.set(key, dictSize++);
+        /* bump code size when the just-added entry index reaches 2^codeSize
+           (decoder adds entries one code behind us; this keeps them in sync) */
+        if ((dictSize - 1) === (1 << codeSize) && codeSize < 12) codeSize++;
+      } else {
+        emit(clear);
+        dict.clear();
+        dictSize = eoi + 1;
+        codeSize = minCodeSize + 1;
+      }
+      prefix = k;
+    }
+    emit(prefix);
+    emit(eoi);
+    if (curBits > 0) out.push(cur & 255);
+    return out;
+  }
+
+  /* ---------- median-cut quantization ---------- */
+  function boxRanges(box) {
+    var rmin = 255, rmax = 0, gmin = 255, gmax = 0, bmin = 255, bmax = 0;
+    for (var i = 0; i < box.length; i++) {
+      var c = box[i];
+      if (c[0] < rmin) rmin = c[0]; if (c[0] > rmax) rmax = c[0];
+      if (c[1] < gmin) gmin = c[1]; if (c[1] > gmax) gmax = c[1];
+      if (c[2] < bmin) bmin = c[2]; if (c[2] > bmax) bmax = c[2];
+    }
+    return [rmax - rmin, gmax - gmin, bmax - bmin];
+  }
+
+  function boxCount(box) {
+    var n = 0;
+    for (var i = 0; i < box.length; i++) n += box[i][3];
+    return n;
+  }
+
+  function medianCut(hist, maxColors) {
+    var colors = [];
+    hist.forEach(function (count, key) {
+      colors.push([(key >> 16) & 255, (key >> 8) & 255, key & 255, count]);
+    });
+    var boxes = [colors];
+    while (boxes.length < maxColors) {
+      var bi = -1, best = -1;
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].length < 2) continue;
+        var r = boxRanges(boxes[i]);
+        var score = Math.max(r[0], r[1], r[2]) * Math.sqrt(boxCount(boxes[i]));
+        if (score > best) { best = score; bi = i; }
+      }
+      if (bi < 0) break;
+      var box = boxes[bi];
+      var rr = boxRanges(box);
+      var ch = rr[0] >= rr[1] && rr[0] >= rr[2] ? 0 : (rr[1] >= rr[2] ? 1 : 2);
+      box.sort(function (a, b) { return a[ch] - b[ch]; });
+      var total = boxCount(box), acc = 0, cut = box.length - 1;
+      for (var t = 0; t < box.length - 1; t++) {
+        acc += box[t][3];
+        if (acc >= total / 2) { cut = t + 1; break; }
+      }
+      boxes.splice(bi, 1, box.slice(0, cut), box.slice(cut));
+    }
+    var pal = [];
+    for (var b2 = 0; b2 < boxes.length; b2++) {
+      var bx = boxes[b2], r = 0, g = 0, bl = 0, n = 0;
+      for (var j = 0; j < bx.length; j++) {
+        r += bx[j][0] * bx[j][3]; g += bx[j][1] * bx[j][3]; bl += bx[j][2] * bx[j][3]; n += bx[j][3];
+      }
+      pal.push(n ? [Math.round(r / n), Math.round(g / n), Math.round(bl / n)] : [0, 0, 0]);
+    }
+    return pal;
+  }
+
+  function nearest(palette, r, g, b) {
+    var best = 0, bestD = Infinity;
+    for (var i = 0; i < palette.length; i++) {
+      var c = palette[i];
+      var dr = c[0] - r, dg = c[1] - g, db = c[2] - b;
+      var d = dr * dr + dg * dg + db * db;
+      if (d < bestD) { bestD = d; best = i; if (d === 0) break; }
+    }
+    return best;
+  }
+
+  /**
+   * Encode an animated (or single-frame) GIF89a.
+   * @param {Object} opts
+   *   width, height  — pixel size
+   *   delays         — array of per-frame delays in ms
+   *   getFrame       — (frameIndex, rgba: Uint8ClampedArray) => void; fills rgba (w*h*4)
+   * @returns {Uint8Array}
+   */
+  function encode(opts) {
+    var W = opts.width, H = opts.height, delays = opts.delays, getFrame = opts.getFrame;
+    var n = delays.length;
+    var px = new Uint8ClampedArray(W * H * 4);
+    var pixels = W * H;
+
+    /* pass 1 — color histogram (sampled) */
+    var hist = new Map();
+    var stride = Math.max(1, Math.floor(pixels / 250000));
+    for (var f = 0; f < n; f++) {
+      getFrame(f, px);
+      for (var p = 0; p < pixels; p += stride) {
+        var o = p * 4;
+        if (px[o + 3] < 128) continue;
+        var key = (px[o] << 16) | (px[o + 1] << 8) | px[o + 2];
+        hist.set(key, (hist.get(key) || 0) + 1);
+      }
+    }
+
+    var palette;
+    if (hist.size <= 256) {
+      palette = [];
+      hist.forEach(function (c, k) { palette.push([(k >> 16) & 255, (k >> 8) & 255, k & 255]); });
+    } else {
+      palette = medianCut(hist, 256);
+    }
+    while (palette.length < 256) palette.push([0, 0, 0]);
+
+    var cache = new Map();
+    function indexOf(r, g, b) {
+      var k = (r << 16) | (g << 8) | b;
+      var v = cache.get(k);
+      if (v === undefined) { v = nearest(palette, r, g, b); cache.set(k, v); }
+      return v;
+    }
+
+    /* pass 2 — index pixels, LZW, assemble */
+    var buf = new ByteBuf();
+    buf.ascii("GIF89a");
+    buf.short(W); buf.short(H);
+    buf.byte(0xF7); /* GCT present, 8-bit color resolution, 256 entries */
+    buf.byte(0);    /* background color index */
+    buf.byte(0);    /* pixel aspect ratio */
+    for (var i2 = 0; i2 < 256; i2++) {
+      var c2 = palette[i2];
+      buf.byte(c2[0]); buf.byte(c2[1]); buf.byte(c2[2]);
+    }
+    /* NETSCAPE2.0 — loop forever */
+    buf.byte(0x21); buf.byte(0xFF); buf.byte(0x0B);
+    buf.ascii("NETSCAPE2.0");
+    buf.byte(0x03); buf.byte(0x01); buf.short(0); buf.byte(0);
+
+    var indices = new Uint8Array(pixels);
+    for (var f2 = 0; f2 < n; f2++) {
+      getFrame(f2, px);
+      for (var p2 = 0; p2 < pixels; p2++) {
+        var o2 = p2 * 4;
+        indices[p2] = px[o2 + 3] < 128 ? 0 : indexOf(px[o2], px[o2 + 1], px[o2 + 2]);
+      }
+      var delayCs = Math.max(2, Math.round(delays[f2] / 10));
+      /* graphic control extension */
+      buf.byte(0x21); buf.byte(0xF9); buf.byte(0x04);
+      buf.byte(0x04); /* disposal = do not dispose */
+      buf.short(delayCs);
+      buf.byte(0); buf.byte(0);
+      /* image descriptor */
+      buf.byte(0x2C); buf.short(0); buf.short(0); buf.short(W); buf.short(H); buf.byte(0);
+      buf.byte(8); /* LZW min code size */
+      var lzw = lzwCompress(8, indices);
+      for (var bi = 0; bi < lzw.length; bi += 255) {
+        var end = Math.min(bi + 255, lzw.length);
+        buf.byte(end - bi);
+        for (var bj = bi; bj < end; bj++) buf.byte(lzw[bj]);
+      }
+      buf.byte(0);
+    }
+    buf.byte(0x3B);
+    return buf.toUint8();
+  }
+
+  var GIF = { encode: encode };
+
+  if (typeof module !== "undefined" && module.exports) module.exports = GIF;
+  else global.GIF = GIF;
+})(typeof window !== "undefined" ? window : this);
+
+</script>
+<script>
+/* BSOD Studio — canvas renderer.
+   Layout constants are calibrated against real screenshots:
+   - Windows 10/11 (1920×1080 real capture): face 0.171H/0.167H, headline 0.374H,
+     pitch 0.0546H, QR 0.109H, margins 0.19H, small text 0.0185H
+   - Windows 8: content indent 0.294H, face top 0.232H, inline "(n% complete)"
+   - Windows 11 24H2 (2025): centered text, headline 0.465H, stop line 0.946H
+   - Classic text modes: 80-column grid, rows per era (NT 50, 9x 25, XP 30) */
+(function (global) {
+  'use strict';
+
+  var FONT_SEGOE = '"Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif';
+
+  var FONT_STACKS = {
+    segoe: FONT_SEGOE,
+    system: 'system-ui, sans-serif',
+    arial: 'Arial, sans-serif',
+    verdana: 'Verdana, sans-serif',
+    mono: 'Consolas, "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace',
+    consolas: 'Consolas, "DejaVu Sans Mono", monospace',
+    lucida: '"Lucida Console", Consolas, "DejaVu Sans Mono", monospace',
+    courier: '"Courier New", Courier, "DejaVu Sans Mono", monospace',
+    dejavu: '"DejaVu Sans Mono", Consolas, monospace'
+  };
+
+  function fontStack(key) {
+    return FONT_STACKS[key] || FONT_SEGOE;
+  }
+
+  function lum(hex) {
+    var h = hex.replace("#", "");
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var r = parseInt(h.substr(0, 2), 16) / 255;
+    var g = parseInt(h.substr(2, 2), 16) / 255;
+    var b = parseInt(h.substr(4, 2), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  function wrapText(text, maxWidth, measure) {
+    var out = [];
+    var paragraphs = String(text).split("\n");
+    for (var p = 0; p < paragraphs.length; p++) {
+      var words = paragraphs[p].split(/(\s+)/);
+      var line = "";
+      for (var i = 0; i < words.length; i++) {
+        var test = line + words[i];
+        if (measure(test) > maxWidth && line.trim() !== "") {
+          out.push(line.replace(/\s+$/, ""));
+          line = words[i].replace(/^\s+/, "");
+          /* hard-break oversized single words (CJK / long URLs) */
+          while (measure(line) > maxWidth && line.length > 1) {
+            var cut = line.length - 1;
+            while (cut > 1 && measure(line.slice(0, cut)) > maxWidth) cut--;
+            out.push(line.slice(0, cut));
+            line = line.slice(cut);
+          }
+        } else {
+          line = test;
+        }
+      }
+      out.push(line.replace(/\s+$/, ""));
+    }
+    return out;
+  }
+
+  function wrapClassic(text, cols) {
+    var out = [];
+    String(text).split("\n").forEach(function (para) {
+      if (para.length <= cols) { out.push(para); return; }
+      var words = para.split(" ");
+      var line = "";
+      words.forEach(function (w) {
+        while (w.length > cols) {
+          if (line) { out.push(line); line = ""; }
+          out.push(w.slice(0, cols));
+          w = w.slice(cols);
+        }
+        if (line === "") { line = w; }
+        else if ((line + " " + w).length <= cols) { line += " " + w; }
+        else { out.push(line); line = w; }
+      });
+      out.push(line);
+    });
+    return out;
+  }
+
+  /* ---------------- QR ---------------- */
+
+  /* always encode a scannable LINK: scheme-less targets get https:// prepended,
+     so phone cameras offer "open website" instead of showing plain text */
+  function qrLink(t) {
+    t = String(t || "").trim();
+    if (!t) t = "https://www.windows.com/stopcode";
+    if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(t)) t = "https://" + t;
+    return t;
+  }
+
+  function drawQR(ctx, text, x, y, size, moduleColor) {
+    var t = qrLink(text);
+    var qr = global.QR.encode(t);
+    var quiet = 3;
+    var cells = qr.size + quiet * 2;
+    var cell = size / cells;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(x, y, size, size);
+    ctx.fillStyle = moduleColor;
+    for (var r = 0; r < qr.size; r++) {
+      for (var c = 0; c < qr.size; c++) {
+        if (qr.modules[r][c]) {
+          var px = x + (c + quiet) * cell;
+          var py = y + (r + quiet) * cell;
+          ctx.fillRect(px, py, cell + 0.5, cell + 0.5);
+        }
+      }
+    }
+  }
+
+  function qrModuleColor(bg, fg) {
+    if (lum(bg) < 0.82) return bg;
+    if (lum(fg) < 0.82) return fg;
+    return "#000000";
+  }
+
+  /* ---------------- classic text-mode layout ---------------- */
+
+  function renderClassic(ctx, W, H, S) {
+    var rows = S.rows || 30;
+    var lineH = H / rows;
+    var charW = W / 80;
+    var fontSize = lineH * 0.92;
+
+    ctx.fillStyle = S.bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = S.fg;
+    ctx.textBaseline = "alphabetic";
+    ctx.font = fontSize + "px " + fontStack(S.font);
+
+    var natural = ctx.measureText("MMMMMMMMMM").width / 10;
+    var sx = natural > 0 ? charW / natural : 1;
+    ctx.save();
+    ctx.scale(sx, 1);
+
+    var lines = wrapClassic(S.body || "", 80);
+    var y0 = lineH * 0.35;
+    var baseline = y0 + lineH * 0.80;
+
+    /* cursor blink target: last non-empty line */
+    var li = -1;
+    if (S.cursorBlink) {
+      for (var t = lines.length - 1; t >= 0; t--) {
+        if (lines[t].replace(/\s/g, "").length) { li = t; break; }
+      }
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var y = baseline + i * lineH;
+      if (y - fontSize > H) break;
+      var txt = lines[i];
+      if (i === li) {
+        txt = txt.replace(/_+$/, "");               /* hide the body's own cursor */
+        if (S.cursorOn) txt += "_";                 /* blink it */
+      }
+      ctx.fillText(txt, charW * 0.2 / sx, y);
+    }
+    ctx.restore();
+  }
+
+  /* ---------------- modern layouts ---------------- */
+
+  function renderModern(ctx, W, H, S) {
+    var I = global.I18N;
+    var win8 = S.layout === "win8";
+    var centered = S.layout === "centered";
+
+    /* Layout scale: calibrated against real captures at 16:9/4:3 (scale = H).
+       For taller-than-wide canvases the width becomes the constraint, and the
+       content block is vertically centered instead of top-anchored. */
+    var K = Math.min(H, W * 0.75);
+    var portrait = H > W;
+    var yOff = portrait ? Math.max(0, (H - K * 1.15) / 2) : 0;
+
+    var xM = (win8 ? 0.294 : 0.19) * K;
+    var faceTop = yOff + (win8 ? 0.232 : 0.171) * K;
+    var pitch = 0.0546 * K;
+    var headFont = 0.0407 * K * (S.scale || 1);
+    var smallFont = 0.0185 * K * (S.scale || 1);
+    var smallPitch = 0.0315 * K;
+    var faceFont = 0.225 * K * (S.scale || 1);
+    var faceInk = 0.167 * K * (S.scale || 1);
+    var wrapW = W - xM - 0.06 * K;
+
+    ctx.fillStyle = S.bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = S.fg;
+    ctx.textBaseline = "alphabetic";
+
+    var stack = fontStack(S.font);
+    var y = faceTop;
+
+    if (S.showFace) {
+      ctx.font = "300 " + faceFont + "px " + stack;
+      if (centered) {
+        ctx.textAlign = "center";
+        ctx.fillText(S.face || ":(", W / 2, y + faceInk);
+        ctx.textAlign = "left";
+      } else {
+        ctx.fillText(S.face || ":(", xM, y + faceInk);
+      }
+      y += faceInk + 0.7 * pitch;
+    } else if (centered) {
+      y = yOff + 0.465 * (portrait ? K : H);
+    }
+
+    /* headline */
+    var headline = S.headline || "";
+    if (win8 && S.showPercent) {
+      var pt = I.bsod(S.lang, "bPercent", { n: S.percent });
+      headline += " (" + pt + ")";
+    }
+    ctx.font = "300 " + headFont + "px " + stack;
+    var lines = wrapText(headline, wrapW, function (s) { return ctx.measureText(s).width; });
+    var alignLeft = S.align !== "center" && !centered;
+    if (!alignLeft) ctx.textAlign = "center";
+    var tx = alignLeft ? xM : W / 2;
+    for (var i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], tx, y + headFont * 0.76 + i * pitch);
+    }
+    y += (lines.length + 0.5) * pitch;
+
+    /* percent line (win8 draws it inline above) */
+    if (S.showPercent && !win8) {
+      var ptext = I.bsod(S.lang, "bPercent", { n: S.percent });
+      ctx.fillText(ptext, tx, y + headFont * 0.76);
+      y += 1.5 * pitch;
+    } else if (win8) {
+      y += 0.5 * pitch;
+    }
+
+    /* QR + info block (modern) */
+    if (S.layout === "modern") {
+      if (S.showQr) {
+        var qrSize = 0.109 * K;
+        var modColor = qrModuleColor(S.bg, S.fg);
+        drawQR(ctx, S.qrText, xM, y, qrSize, modColor);
+        ctx.fillStyle = S.fg;
+        var textX = xM + qrSize + 0.0204 * K;
+        ctx.font = smallFont + "px " + stack;
+        var info = [];
+        if (S.showForMore) info.push(I.bsod(S.lang, "bForMore", { url: qrLink(S.qrText) }));
+        var infoLines = [];
+        for (var q = 0; q < info.length; q++) {
+          infoLines = infoLines.concat(wrapText(info[q], W - textX - 0.06 * K, function (s) { return ctx.measureText(s).width; }));
+        }
+        var sy = y + smallFont;
+        for (var l = 0; l < infoLines.length; l++) {
+          ctx.fillText(infoLines[l], textX, sy);
+          sy += smallPitch;
+        }
+        sy += smallPitch;
+        if (S.showSupport) { ctx.fillText(S.supportText, textX, sy); sy += smallPitch; }
+        ctx.fillText(I.bsod(S.lang, "bStopLabel") + " " + S.stopCode, textX, sy); sy += smallPitch;
+        if (S.showFailed) { ctx.fillText(I.bsod(S.lang, "bFailedLabel") + " " + S.failedText, textX, sy); }
+        y += qrSize;
+      } else {
+        ctx.font = smallFont + "px " + stack;
+        var sy2 = y + smallFont;
+        if (S.showForMore) { ctx.fillText(I.bsod(S.lang, "bForMore", { url: qrLink(S.qrText) }), xM, sy2); sy2 += smallPitch; }
+        sy2 += smallPitch;
+        if (S.showSupport) { ctx.fillText(S.supportText, xM, sy2); sy2 += smallPitch; }
+        ctx.fillText(I.bsod(S.lang, "bStopLabel") + " " + S.stopCode, xM, sy2); sy2 += smallPitch;
+        if (S.showFailed) { ctx.fillText(I.bsod(S.lang, "bFailedLabel") + " " + S.failedText, xM, sy2); }
+      }
+    }
+
+    /* win8 single info line */
+    if (win8 && S.showInfoLine) {
+      var infoTop = y + 0.44 * pitch;
+      ctx.font = smallFont + "px " + stack;
+      var ilines = wrapText(I.bsod(S.lang, "bWin8Info", { code: S.stopCode }), wrapW, function (s) { return ctx.measureText(s).width; });
+      for (var w = 0; w < ilines.length; w++) {
+        ctx.fillText(ilines[w], xM, infoTop + smallFont + w * smallPitch);
+      }
+    }
+
+    /* centered extras (2025) */
+    if (centered) {
+      ctx.textAlign = "center";
+      ctx.font = smallFont + "px " + stack;
+      var cy = y;
+      if (S.showQr) {
+        var qs = 0.109 * K;
+        drawQR(ctx, S.qrText, W / 2 - qs / 2, cy, qs, qrModuleColor(S.bg, S.fg));
+        ctx.fillStyle = S.fg;
+        cy += qs + 1.5 * pitch;
+      }
+      var extra = [];
+      if (S.showForMore) extra.push(I.bsod(S.lang, "bForMore", { url: qrLink(S.qrText) }));
+      if (S.showSupport) extra.push(S.supportText);
+      if (S.showFailed) extra.push(I.bsod(S.lang, "bFailedLabel") + " " + S.failedText);
+      for (var e = 0; e < extra.length; e++) {
+        var el = wrapText(extra[e], wrapW, function (s) { return ctx.measureText(s).width; });
+        for (var e2 = 0; e2 < el.length; e2++) {
+          ctx.fillText(el[e2], W / 2, cy + smallFont);
+          cy += smallPitch;
+        }
+      }
+      /* bottom stop line */
+      var stopText = I.bsod(S.lang, "bStopLabel") + " " + S.stopCode;
+      if (S.showHex && S.hex) stopText += " (" + S.hex + ")";
+      ctx.fillText(stopText, W / 2, H - 0.054 * K + smallFont);
+      ctx.textAlign = "left";
+    }
+  }
+
+  /* ---------------- entry ---------------- */
+
+  function render(canvas, S) {
+    var W = S.w, H = S.h;
+    if (canvas.width !== W) canvas.width = W;
+    if (canvas.height !== H) canvas.height = H;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    if (S.layout === "classic") renderClassic(ctx, W, H, S);
+    else renderModern(ctx, W, H, S);
+  }
+
+  global.BSODRender = { render: render, wrapText: wrapText, fontStack: fontStack };
+})(typeof window !== "undefined" ? window : this);
+
+</script>
+<script>
+/* BSOD Studio — application state, UI wiring, export. */
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var I = window.I18N, P = window.Presets, R = window.BSODRender;
+
+  /* ---------------- state ---------------- */
+
+  var DEFAULT_URL = "https://www.windows.com/stopcode";
+
+  function blankState() {
+    return {
+      lang: "en",
+      era: "win10",
+      layout: "modern", rows: 30,
+      bg: "#0078D7", fg: "#FFFFFF",
+      font: "segoe", align: "left", scale: 100,
+      showFace: true, face: ":(",
+      headline: "",
+      showPercent: true, percent: 0,
+      showInfoLine: true,
+      qrText: DEFAULT_URL, showQr: true, showForMore: true,
+      showSupport: true, supportText: "",
+      stopCode: "SYSTEM_SERVICE_EXCEPTION",
+      showFailed: false, failedText: "win32kfull.sys",
+      showHex: true, hex: "0x4A",
+      body: "", seed: 42,
+      animMode: "percent", animSpeed: 100, animSteps: 20,
+      format: "gif",
+      resW: 1920, resH: 1080
+    };
+  }
+
+  var S = blankState();
+  var dirty = {};   /* per-field edit flags: face, headline, supportText, failedText, body */
+
+  function save() {
+    try { localStorage.setItem("bsod-studio", JSON.stringify({ s: S, dirty: dirty, theme: document.documentElement.dataset.theme || "light" })); } catch (e) {}
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem("bsod-studio");
+      if (!raw) return false;
+      var d = JSON.parse(raw);
+      if (d && d.s) {
+        S = Object.assign(blankState(), d.s);
+        dirty = d.dirty || {};
+        if (d.theme) { document.documentElement.dataset.theme = d.theme; }
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  /* ---------------- i18n helpers ---------------- */
+
+  function t(key, vars) { return I.t(S.lang, key, vars); }
+  function b(key, vars) { return I.bsod(S.lang, key, vars); }
+
+  function headlineFor(era) {
+    var E = P.ERAS[era];
+    if (!E) return "";
+    if (era === "black2025") return b("bBlackHead");
+    return b(E.winVariant === "pc" ? "bHeadPc" : "bHeadDev");
+  }
+
+  function stopHex(code) { return P.HEX_FOR[code] || "0x0000007E"; }
+
+  /* ---------------- era application ---------------- */
+
+  function regenClassic() {
+    if (S.layout !== "classic") return;
+    S.body = P.classicBody(null, S.era, S.lang, S.stopCode, { seed: S.seed, driver: "SPCMDCON.SYS" });
+    dirty.body = false;
+  }
+
+  function applyEra(id, keep) {
+    var E = P.ERAS[id];
+    if (!E) { S.era = "custom"; updateUI(); render(); return; }
+    S.era = id;
+    S.layout = E.layout;
+    S.rows = E.rows || S.rows;
+    S.bg = E.bg; S.fg = E.fg;
+    S.font = E.font; S.align = E.align || "left";
+    S.showFace = !!E.showFace; if (E.face) S.face = E.face;
+    S.showPercent = !!E.showPercent;
+    S.percent = (keep && keep.percent !== undefined) ? keep.percent : 0;
+    S.showQr = !!E.showQr;
+    S.showForMore = !!E.showForMore;
+    S.showInfoLine = !!E.showInfoLine;
+    S.showSupport = !!E.showSupport;
+    S.showFailed = !!E.showFailed;
+    S.showHex = !!E.showHex;
+    if (!keep || !keep.stopCode) {
+      S.stopCode = id === "black2025" ? "IRQL_GT_ZERO_AT_SYSTEM_SERVICE"
+        : id === "nt" ? "PAGE_FAULT_IN_NONPAGED_AREA"
+        : id === "xp" ? "PAGE_FAULT_IN_NONPAGED_AREA"
+        : id === "win9x" ? "UNEXPECTED_KERNEL_MODE_TRAP"
+        : "SYSTEM_SERVICE_EXCEPTION";
+    }
+    S.hex = stopHex(S.stopCode);
+    S.failedText = "win32kfull.sys";
+    if (!keep || !keep.qrText) S.qrText = DEFAULT_URL;
+    dirty.face = dirty.headline = dirty.supportText = dirty.failedText = dirty.body = false;
+    S.face = E.face || ":(";
+    S.headline = headlineFor(id);
+    S.supportText = b("bSupport");
+    regenClassic();
+    updateUI();
+    if (S.animMode === "off") render(); else startAnim();
+  }
+
+  function refreshTextsForLang() {
+    var E = P.ERAS[S.era];
+    if (E) {
+      if (!dirty.face && E.face) S.face = E.face;
+      if (!dirty.headline) S.headline = headlineFor(S.era);
+      if (!dirty.supportText) S.supportText = b("bSupport");
+    }
+    if (S.layout === "classic" && !dirty.body) regenClassic();
+  }
+
+  function loadLegend(id) {
+    var L = P.LEGENDS[id];
+    if (!L) return;
+    applyEra(L.era);
+    if (L.stopCode) S.stopCode = L.stopCode;
+    if (L.failed) { S.failedText = L.failed; S.showFailed = true; }
+    if (L.percent !== undefined) S.percent = L.percent;
+    if (L.bodyOverride) { S.body = L.bodyOverride; dirty.body = true; }
+    S.hex = stopHex(S.stopCode);
+    updateUI(); render();
+  }
+
+  /* ---------------- UI plumbing ---------------- */
+
+  var canvas = $("bsodCanvas");
+
+  /* ---------------- animation ---------------- */
+
+  var animFrame = 0, animTimer = null, animPlaying = true;
+
+  function isClassic() { return S.layout === "classic"; }
+  function animOn() { return S.format === "gif" && S.animMode !== "off"; }
+
+  function validAnimMode(mode) {
+    if (mode === "off") return mode;
+    if (mode === "cursor") return isClassic() ? mode : "percent";
+    if (mode === "percent") return isClassic() ? "cursor" : mode;
+    return "off";
+  }
+
+  function frameCount() {
+    if (S.animMode === "percent") return S.animSteps + 1;
+    if (S.animMode === "cursor") return 4;
+    return 1;
+  }
+
+  function frameDelay(i) {
+    if (S.animMode === "cursor") return Math.max(120, S.animSpeed * 4);
+    if (S.animMode === "percent") {
+      var last = i === S.animSteps;
+      return S.animSpeed + (last ? 800 : 0);   /* hold the final 100% */
+    }
+    return 0;
+  }
+
+  function viewForFrame(i) {
+    var view = Object.assign({}, S, { scale: S.scale / 100, w: S.resW, h: S.resH });
+    if (S.animMode === "percent") view.percent = Math.round(i * 100 / S.animSteps);
+    if (S.animMode === "cursor") { view.cursorBlink = true; view.cursorOn = (i % 2 === 0); }
+    return view;
+  }
+
+  function stopAnim() {
+    if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+  }
+
+  function updateScrub() {
+    var n = frameCount();
+    var scrub = $("frameScrub");
+    scrub.max = Math.max(0, n - 1);
+    scrub.value = animFrame;
+    $("frameLabel").textContent = (animFrame + 1) + " / " + n;
+    $("playBtn").textContent = (animPlaying && animOn()) ? "⏸" : "⏵";
+  }
+
+  function setPlaying(p) {
+    animPlaying = p;
+    $("playBtn").textContent = (p && animOn()) ? "⏸" : "⏵";
+    if (p) startAnim();
+    else { stopAnim(); render(viewForFrame(animFrame)); }
+  }
+
+  function tickLoop() {
+    var n = frameCount();
+    animFrame = (animFrame + 1) % n;
+    render(viewForFrame(animFrame));
+    updateScrub();
+    animTimer = setTimeout(tickLoop, frameDelay(animFrame));
+  }
+
+  function startAnim() {
+    stopAnim();
+    updateScrub();
+    if (!animOn()) { render(); return; }
+    if (animPlaying) animTimer = setTimeout(tickLoop, 0);
+    else render(viewForFrame(animFrame));
+  }
+
+  function fitCanvas() {
+    var stage = document.querySelector(".stage");
+    if (!stage) return;
+    var aw = stage.clientWidth - 48;
+    var ah = stage.clientHeight - 48;
+    if (aw <= 0 || ah <= 0) return;
+    var s = Math.min(aw / S.resW, ah / S.resH);
+    canvas.style.width = Math.max(50, Math.round(S.resW * s)) + "px";
+    canvas.style.height = Math.max(50, Math.round(S.resH * s)) + "px";
+  }
+
+  function render(view) {
+    view = view || (animOn() ? viewForFrame(animFrame) : Object.assign({}, S, { scale: S.scale / 100, w: S.resW, h: S.resH }));
+    R.render(canvas, view);
+    fitCanvas();
+    var meta = S.resW + " × " + S.resH + " · " + (S.format === "gif" ? "GIF" : "PNG");
+    if (S.format === "gif" && S.animMode !== "off") meta += " · " + frameCount() + "f";
+    $("stageRes").textContent = meta;
+    var eraName = S.era === "custom" ? t("presetCustom") : t(P.ERAS[S.era] ? P.ERAS[S.era].nameKey : "presetCustom");
+    $("stageEra").textContent = eraName;
+    save();
+  }
+
+  function updateDownloadLabel() {
+    $("downloadBtn").textContent = t(S.format === "gif" ? "btnGif" : "btnDownload");
+  }
+
+  function setFormat(f) {
+    if (S.format === f) return;
+    S.format = f;
+    updateUI();
+    startAnim();
+    save();
+  }
+
+  function setVis(key, on) {
+    var el = document.querySelector('[data-show="' + key + '"]');
+    if (el) el.hidden = !on;
+  }
+
+  var FONTS_MODERN = [["segoe", "fontSegoe"], ["system", "fontSystem"], ["arial", "fontArial"], ["verdana", "fontVerdana"]];
+  var FONTS_CLASSIC = [["consolas", "fontConsolas"], ["lucida", "fontLucida"], ["courier", "fontCourier"], ["dejavu", "fontDejavu"]];
+
+  function fillFontSelect() {
+    var sel = $("fontSelect");
+    var list = S.layout === "classic" ? FONTS_CLASSIC : FONTS_MODERN;
+    sel.innerHTML = "";
+    list.forEach(function (f) {
+      var o = document.createElement("option");
+      o.value = f[0];
+      o.textContent = t(f[1]);
+      sel.appendChild(o);
+    });
+    /* keep a valid selection, prefer the era default */
+    var values = list.map(function (f) { return f[0]; });
+    if (values.indexOf(S.font) === -1) {
+      var eraFont = P.ERAS[S.era] ? P.ERAS[S.era].font : "segoe";
+      if (eraFont === "mono") eraFont = "consolas";
+      if (eraFont === "segoe") eraFont = "segoe";
+      S.font = values.indexOf(eraFont) !== -1 ? eraFont : values[0];
+    }
+    sel.value = S.font;
+  }
+
+  function fillAnimSelect() {
+    var sel = $("animSelect");
+    var prev = S.animMode;
+    var opts = [["off", "animOff"], ["percent", "animPercent"]];
+    if (isClassic()) opts = [["off", "animOff"], ["cursor", "animCursor"]];
+    sel.innerHTML = "";
+    opts.forEach(function (o) {
+      var el = document.createElement("option");
+      el.value = o[0];
+      el.textContent = t(o[1]);
+      sel.appendChild(el);
+    });
+    S.animMode = validAnimMode(prev);
+    sel.value = S.animMode;
+    $("animRows").hidden = S.animMode === "off";
+    $("stepsField").hidden = S.animMode !== "percent";
+  }
+
+  function updateUI() {
+    /* fields */
+    $("bgColor").value = normHex(S.bg); $("bgHex").value = S.bg;
+    $("fgColor").value = normHex(S.fg); $("fgHex").value = S.fg;
+    $("showFace").checked = S.showFace; $("faceText").value = S.face;
+    $("headline").value = S.headline;
+    $("showPercent").checked = S.showPercent; $("percent").value = S.percent;
+    $("showInfoLine").checked = S.showInfoLine;
+    $("qrText").value = S.qrText;
+    $("showQr").checked = S.showQr; $("showForMore").checked = S.showForMore;
+    $("showSupport").checked = S.showSupport; $("supportText").value = S.supportText;
+    $("stopCode").value = S.stopCode;
+    $("showFailed").checked = S.showFailed; $("failedText").value = S.failedText;
+    $("hexCode").value = S.hex;
+    $("bodyText").value = S.body;
+    $("fontScale").value = S.scale; $("scaleVal").textContent = S.scale + "%";
+    $("alignSelect").value = S.align;
+    $("animSpeed").value = S.animSpeed; $("speedVal").textContent = S.animSpeed + "ms";
+    $("animSteps").value = S.animSteps; $("stepsVal").textContent = S.animSteps;
+    $("percent").disabled = S.format === "gif" && S.animMode === "percent";
+    $("animControls").hidden = S.format !== "gif";
+    $("scrubRow").hidden = !animOn();
+    document.querySelectorAll("#formatSeg .seg-btn").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.fmt === S.format);
+    });
+    var total = 0;
+    for (var ti = 0; ti < frameCount(); ti++) total += frameDelay(ti);
+    $("animTotal").textContent = (S.format === "gif" && S.animMode !== "off")
+      ? "≈ " + (total / 1000).toFixed(1) + " s loop · " + frameCount() + " frames" : "";
+    fillAnimSelect();
+    updateDownloadLabel();
+    $("stopHint").textContent = I.stopMeaning(S.lang, S.stopCode);
+    $("shuffleBtn").hidden = S.era !== "nt";
+
+    var modern = S.layout === "modern", win8 = S.layout === "win8",
+        centered = S.layout === "centered", classic = S.layout === "classic";
+
+    setVis("faceRow", !classic);
+    setVis("headlineRow", !classic);
+    setVis("percentRow", !classic);
+    setVis("infoLineRow", win8);
+    setVis("urlRow", modern || centered);
+    setVis("supportRow", modern || centered);
+    setVis("failedRow", modern || centered);
+    setVis("hexRow", centered);
+    setVis("bodyRow", classic);
+    $("alignField").hidden = classic;
+
+    fillFontSelect();
+
+    /* era chips */
+    document.querySelectorAll(".era-chip").forEach(function (chip) {
+      chip.classList.toggle("active", chip.dataset.era === S.era);
+    });
+
+    /* resolution widgets */
+    var match = S.resW + "x" + S.resH;
+    var known = Array.prototype.some.call($("resSelect").options, function (o) { return o.value === match; });
+    $("resSelect").value = known ? match : "custom";
+    $("customResRow").hidden = !known;
+    $("resW").value = S.resW; $("resH").value = S.resH;
+  }
+
+  function normHex(h) {
+    h = String(h || "");
+    if (h.charAt(0) !== "#") h = "#" + h;
+    if (/^#[0-9a-fA-F]{3}$/.test(h)) {
+      return "#" + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+    }
+    return h.slice(0, 7);
+  }
+
+  function applyI18n() {
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      el.textContent = t(el.getAttribute("data-i18n"));
+    });
+    document.documentElement.lang = S.lang;
+    document.title = t("appTitle") + " — " + { en: "build your own blue screen of death", zh: "打造你自己的蓝屏死机", ja: "オリジナルのブルースクリーン", es: "crea tu propia pantalla azul", fr: "créez votre propre écran bleu", de: "baue deinen eigenen Blue Screen" }[S.lang];
+    /* rebuild dynamic lists with translated labels */
+    fillFontSelect();
+    var sel = $("fontSelect");
+    sel.value = S.font;
+    buildEraGrid();
+    renderHistory();
+    updateDownloadLabel();
+  }
+
+  /* ---------------- history view ---------------- */
+
+  var HISTORY_ORDER = ["pre", "win31", "nt", "nine", "comdex", "concon", "xp", "eight", "qr", "device", "eleven", "crowd", "black"];
+  var YEARS = { pre: "1985", win31: "1990", nt: "1993", nine: "1995", comdex: "1998", concon: "1999", xp: "2001", eight: "2012", qr: "2016", device: "2020", eleven: "2021", crowd: "2024", black: "2025" };
+
+  function renderHistory() {
+    var tl = $("timeline");
+    tl.innerHTML = "";
+    HISTORY_ORDER.forEach(function (id) {
+      var e = I.hist(S.lang, id);
+      var item = document.createElement("div");
+      item.className = "tl-item";
+      var dot = '<span class="tl-dot" aria-hidden="true"></span>';
+      var year = '<span class="tl-year">' + YEARS[id] + "</span>";
+      var body = "<p>" + e.b + "</p>";
+      var legendBtn = e.legend
+        ? '<button class="btn btn-small tl-load" data-legend="' + e.legend + '">' + t("btnLoad") + "</button>"
+        : "";
+      item.innerHTML = dot + '<div class="tl-card">' + year + "<h3>" + e.t + "</h3>" + body + legendBtn + "</div>";
+      tl.appendChild(item);
+    });
+    tl.querySelectorAll("[data-legend]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        loadLegend(btn.getAttribute("data-legend"));
+        switchTab("editor");
+      });
+    });
+
+    var facts = $("facts");
+    facts.innerHTML = "";
+    [
+      ["factColorsT", "factColorsB", "swatch-card"],
+      ["factBallmerT", "factBallmerB"],
+      ["factCustomT", "factCustomB"],
+      ["factCrowdT", "factCrowdB"]
+    ].forEach(function (f) {
+      var card = document.createElement("div");
+      card.className = "fact-card" + (f[2] ? " " + f[2] : "");
+      var html = "<h4>" + t(f[0]) + "</h4><p>" + t(f[1]) + "</p>";
+      if (f[2] === "swatch-card") {
+        html = '<div class="swatch-row">' + P.AUTHENTIC_COLORS.map(function (c) {
+          return '<span class="sw" style="background:' + c.c + '" title="' + c.c + " " + c.k + '"></span>';
+        }).join("") + "</div>" + html;
+      }
+      card.innerHTML = html;
+      facts.appendChild(card);
+    });
+  }
+
+  /* ---------------- toast ---------------- */
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = $("toast");
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 2200);
+  }
+
+  /* ---------------- export ---------------- */
+
+  function download() {
+    canvas.toBlob(function (blob) {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "bsod-" + S.era + "-" + S.resW + "x" + S.resH + ".png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    }, "image/png");
+  }
+
+  function exportGifBytes() {
+    var n = frameCount();
+    var delays = [], views = [];
+    for (var i = 0; i < n; i++) {
+      delays.push(frameDelay(i));
+      views.push(viewForFrame(i));
+    }
+    var off = document.createElement("canvas");
+    return window.GIF.encode({
+      width: S.resW, height: S.resH, delays: delays,
+      getFrame: function (i, px) {
+        R.render(off, views[i]);
+        px.set(off.getContext("2d").getImageData(0, 0, S.resW, S.resH).data);
+      }
+    });
+  }
+
+  function downloadGif() {
+    /* never a dead button: no animation picked -> enable one automatically */
+    if (S.animMode === "off") {
+      S.animMode = validAnimMode("percent");
+      updateUI();
+      startAnim();
+    }
+    var btn = $("downloadBtn");
+    btn.disabled = true;
+    btn.textContent = t("gifBusy");
+    toast(t("gifBusy"));
+    setTimeout(function () {
+      try {
+        var bytes = exportGifBytes();
+        var blob = new Blob([bytes], { type: "image/gif" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "bsod-" + S.era + "-" + S.resW + "x" + S.resH + ".gif";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000);
+      } catch (err) {
+        toast(t("gifFail"));
+      } finally {
+        btn.disabled = false;
+        updateDownloadLabel();
+      }
+    }, 60);
+  }
+
+  function copyImage() {
+    if (!navigator.clipboard || !window.ClipboardItem) { toast(t("toastCopyFail")); return; }
+    canvas.toBlob(function (blob) {
+      navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+        .then(function () { toast(t("toastCopied")); })
+        .catch(function () { toast(t("toastCopyFail")); });
+    }, "image/png");
+  }
+
+  /* ---------------- tabs ---------------- */
+
+  function switchTab(name) {
+    var editor = name === "editor";
+    $("view-editor").classList.toggle("hidden", !editor);
+    $("view-history").classList.toggle("hidden", editor);
+    $("tabEditor").classList.toggle("active", editor);
+    $("tabHistory").classList.toggle("active", !editor);
+    $("tabEditor").setAttribute("aria-selected", editor);
+    $("tabHistory").setAttribute("aria-selected", !editor);
+    if (!editor) renderHistory();
+  }
+
+  /* ---------------- events ---------------- */
+
+  function bind() {
+    $("tabEditor").addEventListener("click", function () { switchTab("editor"); });
+    $("tabHistory").addEventListener("click", function () { switchTab("history"); });
+    window.addEventListener("resize", fitCanvas);
+    $("downloadBtn").addEventListener("click", function () {
+      if (S.format === "gif") downloadGif(); else download();
+    });
+    document.querySelectorAll("#formatSeg .seg-btn").forEach(function (b) {
+      b.addEventListener("click", function () { setFormat(b.dataset.fmt); });
+    });
+    $("frameScrub").addEventListener("input", function (e) {
+      if (animPlaying) setPlaying(false);
+      animFrame = parseInt(e.target.value, 10) % Math.max(1, frameCount());
+      render(viewForFrame(animFrame));
+      updateScrub();
+    });
+    $("playBtn").addEventListener("click", function (e) { setPlaying(!animPlaying); e.currentTarget.blur(); });
+    document.addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        if (S.format === "gif") downloadGif(); else download();
+        return;
+      }
+      if (e.key === " " && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName) &&
+          S.format === "gif" && S.animMode !== "off") {
+        e.preventDefault();
+        setPlaying(!animPlaying);
+      }
+    });
+    $("copyBtn").addEventListener("click", copyImage);
+
+    $("animSelect").addEventListener("change", function (e) {
+      S.animMode = validAnimMode(e.target.value);
+      updateUI();
+      startAnim();
+    });
+    $("animSpeed").addEventListener("input", function (e) {
+      S.animSpeed = parseInt(e.target.value, 10);
+      $("speedVal").textContent = S.animSpeed + "ms";
+      if (S.animMode !== "off") startAnim();
+      save();
+    });
+    $("animSteps").addEventListener("input", function (e) {
+      S.animSteps = parseInt(e.target.value, 10);
+      $("stepsVal").textContent = S.animSteps;
+      if (S.animMode !== "off") startAnim();
+      save();
+    });
+
+    $("langSelect").addEventListener("change", function (e) {
+      S.lang = e.target.value;
+      refreshTextsForLang();
+      applyI18n();
+      updateUI();
+      render();
+    });
+
+    $("themeBtn").addEventListener("click", function () {
+      var cur = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = cur;
+      $("themeBtn").textContent = cur === "dark" ? "☀" : "☾";
+      save();
+    });
+
+    /* colors */
+    $("bgColor").addEventListener("input", function (e) { S.bg = e.target.value; $("bgHex").value = S.bg; render(); });
+    $("bgHex").addEventListener("change", function (e) { S.bg = normHex(e.target.value); updateUI(); render(); });
+    $("fgColor").addEventListener("input", function (e) { S.fg = e.target.value; $("fgHex").value = S.fg; render(); });
+    $("fgHex").addEventListener("change", function (e) { S.fg = normHex(e.target.value); updateUI(); render(); });
+
+    /* content */
+    $("showFace").addEventListener("change", function (e) { S.showFace = e.target.checked; render(); });
+    $("faceText").addEventListener("input", function (e) { S.face = e.target.value; dirty.face = true; render(); });
+    $("headline").addEventListener("input", function (e) { S.headline = e.target.value; dirty.headline = true; render(); });
+    $("showPercent").addEventListener("change", function (e) { S.showPercent = e.target.checked; render(); });
+    $("percent").addEventListener("input", function (e) { S.percent = Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10))); render(); });
+    $("showInfoLine").addEventListener("change", function (e) { S.showInfoLine = e.target.checked; render(); });
+    $("qrText").addEventListener("input", function (e) { S.qrText = e.target.value; render(); });
+    $("showQr").addEventListener("change", function (e) { S.showQr = e.target.checked; render(); });
+    $("showForMore").addEventListener("change", function (e) { S.showForMore = e.target.checked; render(); });
+    $("showSupport").addEventListener("change", function (e) { S.showSupport = e.target.checked; render(); });
+    $("supportText").addEventListener("input", function (e) { S.supportText = e.target.value; dirty.supportText = true; render(); });
+    $("stopCode").addEventListener("input", function (e) {
+      S.stopCode = e.target.value;
+      S.hex = stopHex(S.stopCode);
+      $("hexCode").value = S.hex;
+      $("stopHint").textContent = I.stopMeaning(S.lang, S.stopCode);
+      if (S.layout === "classic" && !dirty.body) regenClassic();
+      $("bodyText").value = S.body;
+      render();
+    });
+    $("showFailed").addEventListener("change", function (e) { S.showFailed = e.target.checked; render(); });
+    $("failedText").addEventListener("input", function (e) { S.failedText = e.target.value; dirty.failedText = true; render(); });
+    $("hexCode").addEventListener("input", function (e) { S.hex = e.target.value; render(); });
+    $("bodyText").addEventListener("input", function (e) { S.body = e.target.value; dirty.body = true; render(); });
+
+    /* typography */
+    $("fontSelect").addEventListener("change", function (e) { S.font = e.target.value; render(); });
+    $("alignSelect").addEventListener("change", function (e) { S.align = e.target.value; render(); });
+    $("fontScale").addEventListener("input", function (e) {
+      S.scale = parseInt(e.target.value, 10);
+      $("scaleVal").textContent = S.scale + "%";
+      render();
+    });
+
+    /* output */
+    $("resSelect").addEventListener("change", function (e) {
+      var v = e.target.value;
+      if (v === "custom") { $("customResRow").hidden = false; return; }
+      var parts = v.split("x");
+      S.resW = parseInt(parts[0], 10); S.resH = parseInt(parts[1], 10);
+      updateUI(); render();
+    });
+    $("resW").addEventListener("change", function (e) { S.resW = Math.max(200, Math.min(7680, parseInt(e.target.value || "1920", 10))); updateUI(); render(); });
+    $("resH").addEventListener("change", function (e) { S.resH = Math.max(200, Math.min(4320, parseInt(e.target.value || "1080", 10))); updateUI(); render(); });
+
+    $("randomizeBtn").addEventListener("click", function () {
+      var eras = P.ERA_ORDER.filter(function (e2) { return e2 !== "custom"; });
+      var era = eras[Math.floor(Math.random() * eras.length)];
+      applyEra(era);
+      var codes = P.STOP_CODES;
+      S.stopCode = codes[Math.floor(Math.random() * codes.length)];
+      S.hex = stopHex(S.stopCode);
+      S.percent = Math.floor(Math.random() * 100);
+      var colors = P.AUTHENTIC_COLORS.filter(function (c) { return c.c !== "#FFFFFF"; });
+      S.bg = colors[Math.floor(Math.random() * colors.length)].c;
+      updateUI(); render();
+    });
+
+    $("resetBtn").addEventListener("click", function () { applyEra(S.era); });
+
+    $("shuffleBtn").addEventListener("click", function () {
+      S.seed = Math.floor(Math.random() * 1e9);
+      regenClassic();
+      $("bodyText").value = S.body;
+      render();
+    });
+  }
+
+  function buildEraGrid() {
+    var grid = $("eraGrid");
+    grid.innerHTML = "";
+    P.ERA_ORDER.forEach(function (id) {
+      var chip = document.createElement("button");
+      chip.className = "era-chip";
+      chip.dataset.era = id;
+      if (id === "custom") {
+        chip.innerHTML = '<span class="era-sw" style="background:conic-gradient(#0078D7,#246F24,#000000,#0078D7)"></span><span class="era-name">' + t("presetCustom") + '</span><span class="era-year"></span>';
+      } else {
+        var E = P.ERAS[id];
+        chip.innerHTML = '<span class="era-sw" style="background:' + E.bg + '"></span><span class="era-name">' + t(E.nameKey) + '</span><span class="era-year">' + E.year + "</span>";
+      }
+      chip.addEventListener("click", function () { applyEra(id); });
+      grid.appendChild(chip);
+    });
+    document.querySelectorAll(".era-chip").forEach(function (chip) {
+      chip.classList.toggle("active", chip.dataset.era === S.era);
+    });
+  }
+
+  function buildStatic() {
+    /* language selector */
+    var ls = $("langSelect");
+    I.languages.forEach(function (l) {
+      var o = document.createElement("option");
+      o.value = l.id; o.textContent = l.label;
+      ls.appendChild(o);
+    });
+    ls.value = S.lang;
+
+    /* era grid (translated) */
+    buildEraGrid();
+
+    /* swatches */
+    var sw = $("bgSwatches");
+    P.BG_COLORS.forEach(function (c) {
+      var bEl = document.createElement("button");
+      bEl.className = "swatch";
+      bEl.style.background = c.c;
+      bEl.title = c.c + " · " + c.k;
+      bEl.addEventListener("click", function () { S.bg = c.c; updateUI(); render(currentView()); });
+      sw.appendChild(bEl);
+    });
+    var fw = $("fgSwatches");
+    P.FG_COLORS.forEach(function (c) {
+      var bEl = document.createElement("button");
+      bEl.className = "swatch";
+      bEl.style.background = c.c;
+      bEl.title = c.c + " · " + c.k;
+      bEl.addEventListener("click", function () { S.fg = c.c; updateUI(); render(currentView()); });
+      fw.appendChild(bEl);
+    });
+
+    /* datalists */
+    var dl = $("stopCodes");
+    P.STOP_CODES.forEach(function (c) {
+      var o = document.createElement("option"); o.value = c; dl.appendChild(o);
+    });
+    var fm = $("failedModules");
+    P.FAILED_MODULES.forEach(function (c) {
+      var o = document.createElement("option"); o.value = c; fm.appendChild(o);
+    });
+  }
+
+  /* ---------------- boot ---------------- */
+
+  function currentView() {
+    if (S.animMode !== "off") return viewForFrame(animFrame);
+    return Object.assign({}, S, { scale: S.scale / 100, w: S.resW, h: S.resH });
+  }
+
+  function boot() {
+    var had = load();
+    if (!had) applyEra("win10");
+    if (document.documentElement.dataset.theme === "dark") $("themeBtn").textContent = "☀";
+    buildStatic();
+    applyI18n();
+    bind();
+    updateUI();
+    startAnim();
+    window.BSODExport = {
+      gif: exportGifBytes,
+      state: function () { return JSON.parse(JSON.stringify(S)); },
+      renderFrame: function (i) { render(viewForFrame(i)); }
+    };
+  }
+
+  boot();
+})();
+
+</script>
+</body>
+</html>
