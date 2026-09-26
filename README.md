@@ -4,12 +4,17 @@ An interactive web app for designing your own **Blue Screen of Death** — any e
 
 Single self-contained `index.html` (all CSS/JS inlined, zero dependencies, works offline).
 
+**Live:** https://qqshi13.github.io/bsod-studio/
+
 ## Run it
 
 ```bash
 xdg-open index.html            # or just double-click / open in any browser
 python3 -m http.server 8080    # optional: http://localhost:8080
 ```
+
+The live site is deployed by GitHub Actions (`.github/workflows/pages.yml`) on
+every push to `main` → GitHub Pages.
 
 ## Features
 
@@ -82,8 +87,10 @@ font-stack fallback that broke classic-era monospace rendering.)
 ## Project layout
 
 ```
-index.html            everything — app shell, styles, all scripts inlined
+index.html                            everything — app shell, styles, all scripts inlined
+.github/workflows/pages.yml           GitHub Pages deploy (Actions)
 README.md
+LICENSE
 ```
 
 Previously split into `assets/js/{i18n,presets,qrcode,gif,render,app}.js`
@@ -108,6 +115,12 @@ Previously split into `assets/js/{i18n,presets,qrcode,gif,render,app}.js`
 Wikipedia — *Blue screen of death* · CNBC (Jun 26, 2025: black BSOD announcement) ·
 Microsoft Windows Insider Blog (Mar 28, 2025: new layout default) ·
 The Verge · Microsoft Learn · CrowdStrike incident reports (Jul 19, 2024).
+
+## License
+
+GPL-3.0 — see [LICENSE](./LICENSE).
+
+---
 
 *Parody/picture generator. Not affiliated with Microsoft; Windows is a
 Microsoft trademark.*
