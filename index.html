@@ -318,6 +318,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
+.footer-credit a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.footer-credit a:hover { text-decoration: underline; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1000px) {
@@ -330,6 +332,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 
 </style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0078D7">
+<meta name="color-scheme" content="dark light">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BSOD Studio">
 </head>
 <body>
 <header class="topbar">
@@ -551,6 +561,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 <footer class="footer">
   <span>BSOD Studio · a parody picture generator. Windows is a trademark of Microsoft; not affiliated.</span>
+  <span class="footer-credit">Built with <a href="https://qqshi13.github.io/nova/" target="_blank" rel="noopener">Nova ☄️</a></span>
 </footer>
 
 <script>
@@ -3152,6 +3163,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   }
 
   boot();
+
+  /* PWA: register the offline cache */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
 })();
 
 </script>
