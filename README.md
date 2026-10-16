@@ -88,13 +88,40 @@ font-stack fallback that broke classic-era monospace rendering.)
 
 ```
 index.html                            everything — app shell, styles, all scripts inlined
+theme/theme.css                       vendored copy of tools-suite/shared/theme.css (pinned)
+theme/theme.sha256                    sha256 of that copy; CI fails if it drifts
+scripts/sync-theme.mjs                fetches/verifies/writes the vendored theme
+package.json                          `npm run theme` / `theme:pin`
 .github/workflows/pages.yml           GitHub Pages deploy (Actions)
+.github/workflows/theme.yml           theme-pin drift check (push + PR)
 README.md
 LICENSE
 ```
 
 Previously split into `assets/js/{i18n,presets,qrcode,gif,render,app}.js`
 (+ CSS); the inline order in `index.html` is the same.
+
+### Theme
+
+`theme/theme.css` is a vendored, self-hosted copy of the canonical stylesheet
+[`tools-suite/shared/theme.css`](https://github.com/QQSHI13/tools-suite/blob/main/shared/theme.css)
+(published at <https://qqshi13.github.io/tools-suite/shared/theme.css>): shared
+design tokens plus the primitives (buttons, cards, panels, badges, toasts,
+`sr-only`, focus/selection/scrollbar styling). `index.html` links the local copy,
+so there is **no runtime cross-site dependency**, and the service worker
+precaches it.
+
+It is pinned by sha256 in `theme/theme.sha256`:
+
+```bash
+npm run theme              # fetch the canonical file, verify it against the pin, write theme/theme.css
+npm run theme -- --check   # verify the committed copy matches the pin (offline; what CI runs)
+npm run theme:pin          # maintainer: re-pin to the current canonical file, then commit
+```
+
+Never edit `theme/theme.css` by hand — `npm run theme` overwrites it, and the
+`Theme pin` workflow fails on drift. This page keeps its own light/dark palette
+in `index.html`; the theme supplies the reset, base typography and primitives.
 
 ## Fidelity notes
 

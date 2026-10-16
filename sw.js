@@ -6,10 +6,11 @@
  * Bump CACHE whenever index.html ships breaking changes: old caches are
  * purged on activate.
  */
-var CACHE = "bsod-studio-v1";
+var CACHE = "bsod-studio-v2";
 var CORE = [
   "./",
   "./index.html",
+  "./theme/theme.css",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",

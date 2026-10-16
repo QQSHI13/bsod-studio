@@ -1,0 +1,24 @@
+name: Theme pin
+
+# theme/theme.css is a vendored copy of the canonical tools-suite theme
+# (tools-suite/shared/theme.css). It must hash to the value pinned in
+# theme/theme.sha256 — this job catches drift on pull requests too, so a stale
+# copy never reaches main. pages.yml gates the deploy on the same check.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  theme:
+    name: Vendored theme matches its pin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check theme/theme.css against theme/theme.sha256
+        run: node scripts/sync-theme.mjs --check

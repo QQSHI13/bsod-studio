@@ -1,0 +1,10 @@
+{
+  "name": "bsod-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vendored assets for BSOD Studio (nothing here is published).",
+  "scripts": {
+    "theme": "node scripts/sync-theme.mjs",
+    "theme:pin": "node scripts/sync-theme.mjs --update-pin"
+  }
+}
